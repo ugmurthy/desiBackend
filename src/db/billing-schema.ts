@@ -11,15 +11,6 @@ export interface UsageRecord {
   timestamp: string;
 }
 
-export interface UsageMetadata {
-  executionId?: string;
-  dagId?: string;
-  model?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-  computeTimeMs?: number;
-}
-
 export interface Invoice {
   id: string;
   tenantId: string;
@@ -28,16 +19,25 @@ export interface Invoice {
   lineItems: string; // JSON string
   subtotal: number;
   total: number;
-  status: "draft" | "pending" | "paid" | "overdue" | "cancelled";
+  status: "draft" | "pending" | "paid" | "cancelled";
   createdAt: string;
 }
 
-export interface InvoiceLineItem {
-  description: string;
+export interface LineItem {
   resourceType: string;
+  description: string;
   quantity: number;
   unitCost: number;
-  amount: number;
+  total: number;
+}
+
+export interface UsageMetadata {
+  executionId?: string;
+  dagId?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  computeTimeMs?: number;
 }
 
 export function initializeBillingSchema(db?: Database): Database {
@@ -75,8 +75,7 @@ export function initializeBillingSchema(db?: Database): Database {
 
     CREATE INDEX IF NOT EXISTS idx_invoices_tenantId ON invoices(tenantId);
     CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
-    CREATE INDEX IF NOT EXISTS idx_invoices_periodStart ON invoices(periodStart);
-    CREATE INDEX IF NOT EXISTS idx_invoices_tenant_period ON invoices(tenantId, periodStart);
+    CREATE INDEX IF NOT EXISTS idx_invoices_tenant_period ON invoices(tenantId, periodStart, periodEnd);
   `);
 
   return adminDb;
