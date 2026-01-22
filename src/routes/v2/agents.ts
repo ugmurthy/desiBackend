@@ -6,6 +6,10 @@ interface AgentIdParams {
   id: string;
 }
 
+interface AgentNameParams {
+  name: string;
+}
+
 interface CreateAgentBody {
   name: string;
   version: string;
@@ -311,6 +315,103 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
         }
         throw error;
       }
+    }
+  );
+
+  fastify.post<{ Params: AgentIdParams }>(
+    "/agents/:id/activate",
+    {
+      preHandler: [authenticate],
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      try {
+        const agent = await client.agents.activate(id);
+
+        return {
+          id: agent.id,
+          name: agent.name,
+          version: agent.version,
+          description: agent.description,
+          systemPrompt: agent.systemPrompt,
+          provider: agent.provider,
+          model: agent.model,
+          isActive: agent.isActive,
+          metadata: agent.metadata,
+          createdAt: agent.createdAt,
+          updatedAt: agent.updatedAt,
+        };
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Agent not found",
+          });
+        }
+        throw error;
+      }
+    }
+  );
+
+  fastify.get<{ Params: AgentNameParams }>(
+    "/agents/resolve/:name",
+    {
+      preHandler: [authenticate],
+      schema: {
+        params: {
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { name } = request.params;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      const agent = await client.agents.resolve(name);
+
+      if (!agent) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `No active agent found with name '${name}'`,
+        });
+      }
+
+      return {
+        id: agent.id,
+        name: agent.name,
+        version: agent.version,
+        description: agent.description,
+        systemPrompt: agent.systemPrompt,
+        provider: agent.provider,
+        model: agent.model,
+        isActive: agent.isActive,
+        metadata: agent.metadata,
+        createdAt: agent.createdAt,
+        updatedAt: agent.updatedAt,
+      };
     }
   );
 };
