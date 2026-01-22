@@ -327,3 +327,18 @@ Thread: https://ampcode.com/threads/T-019be540-8a1e-7472-8ce7-398a38dfaa26
   - Use REAL type for monetary values (quantity, unitCost, subtotal, total) in SQLite
   - Invoice status uses "draft" | "pending" | "paid" | "cancelled" states
 ---
+
+## 2026-01-22 - US-022
+Thread: https://ampcode.com/threads/T-019be541-8169-768e-858e-aa044afb7f4b
+- Created billing service at src/services/billing.ts
+- Implemented trackUsage(tenantId, resourceType, quantity, unitCost, metadata) to record usage
+- Implemented getUsage(tenantId, dateRange?) to retrieve usage records with optional date filtering
+- Added trackExecutionUsage() helper for tracking tokens and compute time per execution
+- Added getUsageSummary() for aggregated usage by resource type
+- Files changed: src/services/billing.ts (new)
+- **Learnings for future iterations:**
+  - Billing service uses getAdminDatabase() and initializes billing schema on each call
+  - trackExecutionUsage creates two records: one for tokens, one for compute_time
+  - DateRange interface with start/end strings for date filtering
+  - Usage queries use timestamp column for date range filtering
+---
