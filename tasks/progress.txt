@@ -374,3 +374,18 @@ Thread: https://ampcode.com/threads/T-019be544-b36f-75df-b864-e1e1db425ad5
   - Parse metadata JSON to extract executionId/dagId for unique counts using Set
   - Pagination: slice records in-memory, include hasMore flag for client
 ---
+
+## 2026-01-22 - US-025
+Thread: https://ampcode.com/threads/T-019be545-fbb5-7023-a6f7-134180186e44
+- Added billing invoice endpoints to src/routes/v2/billing.ts
+- GET /api/v2/billing/invoices lists invoices with pagination and optional status filter
+- GET /api/v2/billing/invoices/:id returns detailed invoice with line items
+- Added getInvoices() and getInvoiceById() helper functions for database queries
+- Invoice list returns summary (id, period, subtotal, total, status, createdAt)
+- Invoice detail returns full data including parsed lineItems array
+- Files changed: src/routes/v2/billing.ts
+- **Learnings for future iterations:**
+  - Invoice lineItems are stored as JSON string, parse with JSON.parse to LineItem[]
+  - List endpoint returns summary without lineItems, detail endpoint returns full lineItems
+  - Use initializeAdminDatabase() before initializeBillingSchema() to ensure tables exist
+---
