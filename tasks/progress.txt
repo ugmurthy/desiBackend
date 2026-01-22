@@ -104,3 +104,30 @@ Thread: https://ampcode.com/threads/T-019be5db-0ad6-7179-a3a0-1c5a199d02c5
   - Tenant DB path: ~/.desiAgent/tenants/default/agent.db
 ---
 
+## 2026-01-22 - US-009
+Thread: https://ampcode.com/threads/T-019be5dc-8392-74c7-9162-77d151f96b9f
+- Implemented Bootstrap Service Logic
+- Files changed: src/services/bootstrap.ts, scripts/bootstrap.ts
+- **Learnings for future iterations:**
+  - Bootstrap service is in src/services/bootstrap.ts
+  - `runBootstrap({ force })` orchestrates all initialization steps and returns a summary
+  - CLI in scripts/bootstrap.ts now imports and calls `runBootstrap()`
+  - Bootstrap creates directory structure: ~/.desiAgent/, ~/.desiAgent/seed/, ~/.desiAgent/tenants/
+  - Summary object contains: adminCreated, apiKeyCreated, agentsInserted, agentsSkipped, agentErrors, tenantCreated
+---
+
+## 2026-01-22 - US-010
+Thread: https://ampcode.com/threads/T-019be5dd-d144-752e-b7b3-0d2ab8fb777b
+- Verified Bootstrap Idempotency - all acceptance criteria already met by previous implementations
+- Files changed: None (verification only)
+- **Verification performed:**
+  - Ran bootstrap twice without --force → existing data preserved, agents skipped via UNIQUE constraint
+  - Ran bootstrap with --force → API key regenerated (old key revoked), admin updated, tenant re-initialized
+  - Clear console output shows "Created" vs "Skipped (exists)" for each component
+  - Typecheck passes
+- **Learnings for future iterations:**
+  - Idempotency is built into each service layer (super-admin, admin-api-key, agents-seed, default-tenant)
+  - Agent uniqueness enforced by SQLite UNIQUE(name, version) constraint, caught and counted as "skipped"
+  - Copy scripts/example-agents.csv to ~/.desiAgent/seed/agents.csv to test agent seeding
+---
+
