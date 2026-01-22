@@ -159,3 +159,15 @@ Thread: https://ampcode.com/threads/T-019be51f-2bb1-70c8-9416-abaa2e807aed
   - startTime tracked at module level for accurate uptime calculation
   - Readiness checks should catch and report DB errors gracefully
 ---
+
+## 2026-01-22 - US-011
+Thread: https://ampcode.com/threads/T-019be523-7f4d-74c8-924f-f0bba70e51fd
+- Created GET /api/v2/auth/me endpoint in src/routes/v2/auth.ts
+- Returns current user info: id, email, name, role, tenant info (id, name, slug, plan)
+- Uses authenticate middleware for API key validation
+- Registered auth routes in app.ts with /api/v2 prefix
+- Files changed: src/routes/v2/auth.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - Auth routes use the `request.auth!` non-null assertion since authenticate middleware guarantees it exists
+  - Tenant info in response should only include non-sensitive fields (id, name, slug, plan)
+---
