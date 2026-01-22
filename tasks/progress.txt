@@ -300,3 +300,16 @@ Thread: https://ampcode.com/threads/T-019be531-b1b2-7355-bd7f-dbf1724b8a69
   - Resume endpoint is on executions route but calls client.dags.resume(id)
   - Check for both "suspended" and "waiting" status as valid paused states
 ---
+
+## 2026-01-22 - US-020
+Thread: https://ampcode.com/threads/T-019be532-c352-7049-8826-04df4c022049
+- Created GET /api/v2/tools endpoint in src/routes/v2/tools.ts
+- Returns list of available tools with name, description, and parameters schema
+- Uses client.tools.list() from desiAgent library to retrieve tool definitions
+- Requires valid API key authentication via authenticate middleware
+- Files changed: src/routes/v2/tools.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - client.tools.list() returns ToolDefinition[] with OpenAI function format (type: 'function')
+  - Extract name, description, parameters from tool.function property
+  - Tools are registered at client initialization via ToolRegistry
+---
