@@ -130,3 +130,19 @@ Thread: https://ampcode.com/threads/T-019be51a-35f8-776d-86bb-d5609a06442b
     - TenantContext is only populated when request.auth exists (authenticated routes)
     - Fastify type extensions go in src/types/fastify.d.ts using `declare module "fastify"`
   ---
+
+## 2026-01-22 - US-009
+Thread: https://ampcode.com/threads/T-019be51e-19eb-768a-9bd3-09a5b5673af3
+- Configured @fastify/rate-limit in src/app.ts
+- Default rate limit: 100 requests per minute
+- Rate limit headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
+- 429 response with clear error message when exceeded
+- Limits applied per API key using keyGenerator that extracts key prefix
+- Falls back to IP if no valid API key present
+- Files changed: src/app.ts
+- **Learnings for future iterations:**
+  - Use keyGenerator option to apply rate limits per API key prefix
+  - addHeadersOnExceeding adds headers to all responses, addHeaders controls 429 response headers
+  - errorResponseBuilder customizes the 429 error response format
+  - Extract key prefix using same logic as authenticate middleware for consistency
+---
