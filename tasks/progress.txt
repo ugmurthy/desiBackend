@@ -11,7 +11,8 @@
 - createApiKey requires tenantId parameter to register the key-tenant mapping
 - Fastify type extensions: Use `declare module "fastify"` in src/types/fastify.d.ts
 - decorateRequest: Use `undefined` (not `null`) as initial value to satisfy TypeScript
-- DAG routes: client.dags exposes createFromGoal, list, listScheduled, get, update, safeDelete, execute, executeDefinition
+- DAG routes: client.dags exposes createFromGoal, list, listScheduled, get, update, safeDelete, execute, executeDefinition, runExperiments
+- Async execution endpoints: Return 202 Accepted for operations that run in background
 ---
 
 ## 2026-01-22 - US-001
@@ -253,4 +254,18 @@ Thread: https://ampcode.com/threads/T-019be52b-3499-7317-adaf-bc175321ce0d
   - Use 202 status for clarification_required responses
   - client.dags.safeDelete() throws ValidationError if executions exist for the DAG
   - client.dags.listScheduled() returns ScheduledDAGInfo[] with scheduleDescription human-readable cron
+---
+
+## 2026-01-22 - US-017
+Thread: https://ampcode.com/threads/T-019be52e-3a1c-71fb-8c43-5a2154b15701
+- Added POST /api/v2/dags/:id/execute to execute DAG by ID with optional provider/model params
+- Added POST /api/v2/dags/execute-definition to execute a DAG definition directly
+- Added POST /api/v2/dags/experiments to run experiments across multiple models and temperatures
+- All endpoints use TenantClientService for tenant scoping, return 202 for async execution
+- Files changed: src/routes/v2/dags.ts
+- **Learnings for future iterations:**
+  - client.dags.execute(dagId, options) returns { id, status } - async execution returns 202
+  - client.dags.executeDefinition({ definition, originalGoalText }) takes a DAG definition object
+  - client.dags.runExperiments() takes goalText, agentName, provider, models[], temperatures[]
+  - Execute endpoints should return 202 Accepted since execution is async
 ---
