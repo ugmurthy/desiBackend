@@ -1,0 +1,19 @@
+## Codebase Patterns
+- Use `type` imports for TypeScript types with verbatimModuleSyntax enabled (e.g., `import type { FastifyPluginAsync }`)
+- Run `bun run typecheck` to verify TypeScript correctness
+- Health endpoint pattern: Register routes with prefix in app.ts, export as default from route file
+---
+
+## 2026-01-22 - US-001
+Thread: https://ampcode.com/threads/T-019be511-0bf1-70ac-9194-020f8302229a
+- Initialized Bun project with Fastify framework
+- Installed dependencies: fastify, @fastify/cors, @fastify/env, @fastify/multipart, @fastify/rate-limit, bcrypt
+- Created project structure: src/routes/v2, src/services, src/plugins, src/middleware, src/db, src/types, src/utils, src/config
+- Configured environment schema in src/config/env.ts
+- Created health check endpoint at GET /api/v2/health returning { status: 'ok' }
+- Files changed: package.json, tsconfig.json, src/index.ts, src/app.ts, src/config/env.ts, src/routes/v2/health.ts
+- **Learnings for future iterations:**
+  - Must use `import type` for TypeScript types due to verbatimModuleSyntax in tsconfig
+  - Fastify env plugin uses `confKey` to define where config is accessible (app.config)
+  - Route plugins should export default and be registered with prefix in app.ts
+---
