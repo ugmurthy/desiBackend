@@ -146,3 +146,16 @@ Thread: https://ampcode.com/threads/T-019be51e-19eb-768a-9bd3-09a5b5673af3
   - errorResponseBuilder customizes the 429 error response format
   - Extract key prefix using same logic as authenticate middleware for consistency
 ---
+
+## 2026-01-22 - US-010
+Thread: https://ampcode.com/threads/T-019be51f-2bb1-70c8-9416-abaa2e807aed
+- Extended health routes with liveness and readiness endpoints
+- GET /api/v2/health returns status, version (1.0.0), and uptime in seconds
+- GET /api/v2/health/ready checks admin DB connectivity and returns ready/not_ready status
+- Health endpoints remain exempt from authentication (no auth middleware applied)
+- Files changed: src/routes/v2/health.ts
+- **Learnings for future iterations:**
+  - Use `db.query("SELECT 1 as check_value").get()` to test SQLite connectivity
+  - startTime tracked at module level for accurate uptime calculation
+  - Readiness checks should catch and report DB errors gracefully
+---
