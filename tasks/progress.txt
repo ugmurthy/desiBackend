@@ -2,6 +2,7 @@
 - Use `type` imports for TypeScript types with verbatimModuleSyntax enabled (e.g., `import type { FastifyPluginAsync }`)
 - Run `bun run typecheck` to verify TypeScript correctness
 - Health endpoint pattern: Register routes with prefix in app.ts, export as default from route file
+- Use `fastify-plugin` (fp) wrapper for plugins that need to be encapsulated properly
 ---
 
 ## 2026-01-22 - US-001
@@ -16,4 +17,18 @@ Thread: https://ampcode.com/threads/T-019be511-0bf1-70ac-9194-020f8302229a
   - Must use `import type` for TypeScript types due to verbatimModuleSyntax in tsconfig
   - Fastify env plugin uses `confKey` to define where config is accessible (app.config)
   - Route plugins should export default and be registered with prefix in app.ts
+---
+
+## 2026-01-22 - US-002
+Thread: https://ampcode.com/threads/T-019be513-a932-7447-bbc3-4f758372af55
+- Created global error handler plugin at src/plugins/error-handler.ts
+- Implemented standard error format: { statusCode, error, message, details }
+- Validation errors return 400 with field-level details
+- Not found errors return 404
+- Unhandled errors return 500 without leaking internals
+- Files changed: src/plugins/error-handler.ts, src/app.ts, package.json
+- **Learnings for future iterations:**
+  - Use `fastify-plugin` (fp) to wrap plugins so they share scope with parent
+  - Fastify error handler receives FastifyError which has optional statusCode and validation properties
+  - ValidationError from Fastify's Ajv includes a `validation` array with field-level error details
 ---
