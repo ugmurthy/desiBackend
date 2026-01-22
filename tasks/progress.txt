@@ -9,6 +9,8 @@
 - desiAgent client: Use TenantClientService.getClient(tenantId) to get/create clients per tenant
 - API key lookup: Use api_key_tenant_map table in admin DB to find tenant by key prefix
 - createApiKey requires tenantId parameter to register the key-tenant mapping
+- Fastify type extensions: Use `declare module "fastify"` in src/types/fastify.d.ts
+- decorateRequest: Use `undefined` (not `null`) as initial value to satisfy TypeScript
 ---
 
 ## 2026-01-22 - US-001
@@ -111,4 +113,20 @@ Thread: https://ampcode.com/threads/T-019be51a-35f8-776d-86bb-d5609a06442b
   - Use api_key_tenant_map.keyPrefix to quickly route auth requests to the correct tenant DB
   - Always check tenant.status === "active" before allowing authenticated requests
   - Middleware attaches auth context to request.auth for downstream handlers
----
+  - Tenant context plugin uses onRequest hook to populate request.tenantContext with desiClient after auth
+  ---
+
+  ## 2026-01-22 - US-008
+  Thread: https://ampcode.com/threads/T-019be51c-5819-736d-a73f-44c574e7d917
+  - Created tenant context plugin at src/plugins/tenant.ts
+  - Plugin decorates request with tenantContext containing tenant, user, and desiClient
+  - Extended Fastify types in src/types/fastify.d.ts with auth and tenantContext properties
+  - Plugin uses onRequest hook to populate context from auth middleware
+  - Uses TenantClientService.getClient() to retrieve/create desiAgent client per tenant
+  - Files changed: src/plugins/tenant.ts, src/types/fastify.d.ts
+  - **Learnings for future iterations:**
+    - Use `decorateRequest` with `undefined` (not `null`) to satisfy TypeScript types
+    - Tenant plugin depends on auth middleware running first to populate request.auth
+    - TenantContext is only populated when request.auth exists (authenticated routes)
+    - Fastify type extensions go in src/types/fastify.d.ts using `declare module "fastify"`
+  ---
