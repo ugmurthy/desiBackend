@@ -276,6 +276,56 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+
+  fastify.post<{ Params: ExecutionIdParams }>(
+    "/executions/:id/resume",
+    {
+      preHandler: [authenticate],
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      try {
+        const execution = await client.executions.get(id);
+        
+        if (execution.status !== "suspended" && execution.status !== "waiting") {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: "Bad Request",
+            message: `Execution is not in a paused state. Current status: ${execution.status}`,
+          });
+        }
+
+        const result = await client.dags.resume(id);
+        return reply.status(202).send({
+          id: result.id,
+          status: result.status,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Execution not found",
+          });
+        }
+        throw error;
+      }
+    }
+  );
 };
 
 export default executionsRoutes;
