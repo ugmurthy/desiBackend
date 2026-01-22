@@ -11,13 +11,12 @@
         "@fastify/rate-limit": "^10.3.0",
         "bcrypt": "^6.0.0",
         "fastify": "^5.7.1",
+        "fastify-plugin": "^5.1.0",
       },
       "devDependencies": {
         "@types/bcrypt": "^6.0.0",
         "@types/bun": "latest",
-      },
-      "peerDependencies": {
-        "typescript": "^5",
+        "typescript": "^5.9.3",
       },
     },
   },

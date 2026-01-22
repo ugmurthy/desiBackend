@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyEnv from "@fastify/env";
 import { envSchema } from "./config/env";
+import errorHandler from "./plugins/error-handler";
 import healthRoutes from "./routes/v2/health";
 
 export async function buildApp() {
@@ -18,6 +19,8 @@ export async function buildApp() {
   await app.register(cors, {
     origin: true,
   });
+
+  await app.register(errorHandler);
 
   await app.register(healthRoutes, { prefix: "/api/v2" });
 
