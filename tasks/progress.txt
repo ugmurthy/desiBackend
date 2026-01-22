@@ -78,3 +78,16 @@ Thread: https://ampcode.com/threads/T-019be5d8-671a-74d5-92d2-5f95c0039be2
   - Metadata field can be empty or contain JSON string with double-escaped quotes for CSV
 ---
 
+## 2026-01-22 - US-007
+Thread: https://ampcode.com/threads/T-019be5d9-5786-704a-b20b-e51396d06df5
+- Implemented Agents Seeding from CSV
+- Files changed: src/services/agents-seed.ts
+- **Learnings for future iterations:**
+  - Agent seeding service is in src/services/agents-seed.ts
+  - `seedAgentsFromCSV()` returns `{ inserted, skipped, errors }` summary
+  - CSV parsing handles quoted fields with escaped double-quotes (doubled quotes inside quoted strings)
+  - Uses crypto.getRandomValues() for UUID generation
+  - Handles UNIQUE constraint gracefully by catching SQLite errors and counting as skipped
+  - Missing CSV file is handled gracefully with warning log
+---
+
