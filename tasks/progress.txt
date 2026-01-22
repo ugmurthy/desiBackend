@@ -313,3 +313,17 @@ Thread: https://ampcode.com/threads/T-019be532-c352-7049-8826-04df4c022049
   - Extract name, description, parameters from tool.function property
   - Tools are registered at client initialization via ToolRegistry
 ---
+
+## 2026-01-22 - US-021
+Thread: https://ampcode.com/threads/T-019be540-8a1e-7472-8ce7-398a38dfaa26
+- Created billing schema at src/db/billing-schema.ts
+- UsageRecord table: id, tenantId, resourceType, quantity, unitCost, metadata (JSON), timestamp
+- Invoice table: id, tenantId, periodStart, periodEnd, lineItems (JSON), subtotal, total, status, createdAt
+- Added LineItem and UsageMetadata helper interfaces for typed JSON parsing
+- initializeBillingSchema() adds tables to admin database with proper indexes
+- Files changed: src/db/billing-schema.ts (new)
+- **Learnings for future iterations:**
+  - Billing tables are in the admin DB (not tenant DBs) since they need cross-tenant reporting
+  - Use REAL type for monetary values (quantity, unitCost, subtotal, total) in SQLite
+  - Invoice status uses "draft" | "pending" | "paid" | "cancelled" states
+---
