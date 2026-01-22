@@ -10,6 +10,7 @@ import usersRoutes from "./routes/v2/users";
 import agentsRoutes from "./routes/v2/agents";
 import dagsRoutes from "./routes/v2/dags";
 import executionsRoutes from "./routes/v2/executions";
+import toolsRoutes from "./routes/v2/tools";
 
 export async function buildApp() {
   const app = Fastify({
@@ -65,6 +66,7 @@ export async function buildApp() {
   await app.register(agentsRoutes, { prefix: "/api/v2" });
   await app.register(dagsRoutes, { prefix: "/api/v2" });
   await app.register(executionsRoutes, { prefix: "/api/v2" });
+  await app.register(toolsRoutes, { prefix: "/api/v2" });
 
   return app;
 }
