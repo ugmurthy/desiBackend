@@ -171,3 +171,18 @@ Thread: https://ampcode.com/threads/T-019be523-7f4d-74c8-924f-f0bba70e51fd
   - Auth routes use the `request.auth!` non-null assertion since authenticate middleware guarantees it exists
   - Tenant info in response should only include non-sensitive fields (id, name, slug, plan)
 ---
+
+## 2026-01-22 - US-012
+Thread: https://ampcode.com/threads/T-019be524-c433-72dc-9b0d-ef297c2d7871
+- Added API key management endpoints to src/routes/v2/auth.ts
+- GET /api/v2/auth/api-keys lists user's API keys (prefix only, not full key)
+- POST /api/v2/auth/api-keys creates new API key with validation schema, returns full key once
+- DELETE /api/v2/auth/api-keys/:id revokes API key, returns 404 if not found
+- All endpoints require valid API key authentication via authenticate middleware
+- Files changed: src/routes/v2/auth.ts
+- **Learnings for future iterations:**
+  - Use Fastify's generic types for route handlers (e.g., `fastify.post<{ Body: CreateApiKeyBody }>`)
+  - Define request body interfaces locally when only used in one file
+  - Return 201 for POST creates, 204 for DELETE success
+  - Reuse existing api-key service functions (createApiKey, listApiKeys, revokeApiKey)
+---
