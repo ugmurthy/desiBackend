@@ -55,6 +55,15 @@ export function initializeAdminDatabase(): Database {
 
     CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);
     CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants(status);
+
+    CREATE TABLE IF NOT EXISTS api_key_tenant_map (
+      keyPrefix TEXT PRIMARY KEY,
+      tenantId TEXT NOT NULL,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (tenantId) REFERENCES tenants(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_api_key_tenant_map_tenantId ON api_key_tenant_map(tenantId);
   `);
 
   return adminDb;
@@ -72,4 +81,19 @@ export function closeAdminDatabase(): void {
     adminDb.close();
     adminDb = null;
   }
+}
+
+export function registerApiKeyTenantMapping(keyPrefix: string, tenantId: string): void {
+  const db = getAdminDatabase();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO api_key_tenant_map (keyPrefix, tenantId, createdAt)
+    VALUES (?, ?, datetime('now'))
+  `);
+  stmt.run(keyPrefix, tenantId);
+}
+
+export function removeApiKeyTenantMapping(keyPrefix: string): void {
+  const db = getAdminDatabase();
+  const stmt = db.prepare(`DELETE FROM api_key_tenant_map WHERE keyPrefix = ?`);
+  stmt.run(keyPrefix);
 }

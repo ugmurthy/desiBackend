@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import { hash, compare } from "bcrypt";
 import { randomUUID } from "crypto";
 import type { ApiKey, ApiKeyScope } from "../db/api-key-schema";
+import { registerApiKeyTenantMapping, removeApiKeyTenantMapping } from "../db/admin-schema";
 
 const SALT_ROUNDS = 10;
 const KEY_PREFIX_LENGTH = 8;
@@ -40,6 +41,7 @@ function generateApiKey(env: "live" | "test" = "live"): string {
 
 export async function createApiKey(
   db: Database,
+  tenantId: string,
   input: CreateApiKeyInput
 ): Promise<CreateApiKeyResult> {
   const id = randomUUID();
@@ -65,6 +67,8 @@ export async function createApiKey(
     expiresAt,
     createdAt
   );
+
+  registerApiKeyTenantMapping(keyPrefix, tenantId);
 
   return {
     id,
@@ -137,11 +141,19 @@ export function listApiKeys(db: Database, userId: string): ApiKeyInfo[] {
 }
 
 export function revokeApiKey(db: Database, id: string, userId: string): boolean {
-  const stmt = db.prepare(`
-    DELETE FROM api_keys
-    WHERE id = ? AND userId = ?
-  `);
+  const selectStmt = db.prepare(`SELECT keyPrefix FROM api_keys WHERE id = ? AND userId = ?`);
+  const apiKey = selectStmt.get(id, userId) as { keyPrefix: string } | undefined;
 
-  const result = stmt.run(id, userId);
+  if (!apiKey) {
+    return false;
+  }
+
+  const deleteStmt = db.prepare(`DELETE FROM api_keys WHERE id = ? AND userId = ?`);
+  const result = deleteStmt.run(id, userId);
+
+  if (result.changes > 0) {
+    removeApiKeyTenantMapping(apiKey.keyPrefix);
+  }
+
   return result.changes > 0;
 }
