@@ -13,6 +13,7 @@
 - decorateRequest: Use `undefined` (not `null`) as initial value to satisfy TypeScript
 - DAG routes: client.dags exposes createFromGoal, list, listScheduled, get, update, safeDelete, execute, executeDefinition, runExperiments
 - Async execution endpoints: Return 202 Accepted for operations that run in background
+- Route-specific rate limits: Use `config: { rateLimit: { max, timeWindow } }` in route options
 ---
 
 ## 2026-01-22 - US-001
@@ -423,4 +424,17 @@ Thread: https://ampcode.com/threads/T-019be548-f0e6-737a-9f1b-0afc9f1e99f3
   - Use ensureSuperAdmin as preHandler after authenticate to check API key scopes
   - DELETE endpoint supports both suspend (default) and delete (via ?action=delete) behaviors
   - Parse tenant.quotas from JSON string when returning in responses
+---
+
+## 2026-01-22 - US-028
+Thread: https://ampcode.com/threads/T-019be54a-a61b-77d8-8313-94e2d6f2aede
+- Implemented route-specific rate limits using @fastify/rate-limit config option
+- Auth endpoints (/auth/*): 10 requests per minute
+- Execution create endpoints (/dags/:id/execute, /dags/execute-definition, /dags/experiments): 20 requests per minute
+- Rate limits applied via spread of config object in route options
+- Files changed: src/routes/v2/auth.ts, src/routes/v2/dags.ts
+- **Learnings for future iterations:**
+  - Use `config: { rateLimit: { max, timeWindow } }` in route options to override global rate limit
+  - Create a const object with the config and spread it into route options for reusability
+  - Route-specific rate limits inherit keyGenerator from global config
 ---
