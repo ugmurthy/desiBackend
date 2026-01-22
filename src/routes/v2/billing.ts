@@ -1,13 +1,53 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { getUsage, getUsageSummary, type DateRange } from "../../services/billing";
-import type { UsageMetadata } from "../../db/billing-schema";
+import type { UsageMetadata, LineItem } from "../../db/billing-schema";
+import { getAdminDatabase, initializeAdminDatabase } from "../../db/admin-schema";
+import { initializeBillingSchema, type Invoice } from "../../db/billing-schema";
 
 interface UsageHistoryQuery {
   startDate?: string;
   endDate?: string;
   limit?: number;
   offset?: number;
+}
+
+interface InvoiceListQuery {
+  status?: "draft" | "pending" | "paid" | "cancelled";
+  limit?: number;
+  offset?: number;
+}
+
+interface InvoiceParams {
+  id: string;
+}
+
+function getInvoices(tenantId: string, status?: string): Invoice[] {
+  initializeAdminDatabase();
+  const db = initializeBillingSchema();
+
+  let query = "SELECT * FROM invoices WHERE tenantId = ?";
+  const params: (string | number)[] = [tenantId];
+
+  if (status) {
+    query += " AND status = ?";
+    params.push(status);
+  }
+
+  query += " ORDER BY createdAt DESC";
+
+  return db.query(query).all(...params) as Invoice[];
+}
+
+function getInvoiceById(tenantId: string, invoiceId: string): Invoice | null {
+  initializeAdminDatabase();
+  const db = initializeBillingSchema();
+
+  const result = db
+    .query("SELECT * FROM invoices WHERE id = ? AND tenantId = ?")
+    .get(invoiceId, tenantId) as Invoice | null;
+
+  return result;
 }
 
 const billingRoutes: FastifyPluginAsync = async (fastify) => {
@@ -149,6 +189,109 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
           offset,
           hasMore: offset + limit < totalRecords,
         },
+      };
+    }
+  );
+
+  fastify.get<{ Querystring: InvoiceListQuery }>(
+    "/billing/invoices",
+    {
+      preHandler: [authenticate],
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            status: {
+              type: "string",
+              enum: ["draft", "pending", "paid", "cancelled"],
+            },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            offset: { type: "integer", minimum: 0, default: 0 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const auth = request.auth!;
+      const tenantId = auth.tenant.id;
+      const { status, limit = 50, offset = 0 } = request.query;
+
+      const invoices = getInvoices(tenantId, status);
+      const totalRecords = invoices.length;
+      const paginatedInvoices = invoices.slice(offset, offset + limit);
+
+      const formattedInvoices = paginatedInvoices.map((invoice) => ({
+        id: invoice.id,
+        periodStart: invoice.periodStart,
+        periodEnd: invoice.periodEnd,
+        subtotal: Number(invoice.subtotal),
+        total: Number(invoice.total),
+        status: invoice.status,
+        createdAt: invoice.createdAt,
+      }));
+
+      return {
+        tenantId,
+        invoices: formattedInvoices,
+        pagination: {
+          total: totalRecords,
+          limit,
+          offset,
+          hasMore: offset + limit < totalRecords,
+        },
+      };
+    }
+  );
+
+  fastify.get<{ Params: InvoiceParams }>(
+    "/billing/invoices/:id",
+    {
+      preHandler: [authenticate],
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const tenantId = auth.tenant.id;
+      const { id } = request.params;
+
+      const invoice = getInvoiceById(tenantId, id);
+
+      if (!invoice) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Invoice with id '${id}' not found`,
+        });
+      }
+
+      const lineItems: LineItem[] = JSON.parse(invoice.lineItems);
+
+      return {
+        id: invoice.id,
+        tenantId: invoice.tenantId,
+        period: {
+          start: invoice.periodStart,
+          end: invoice.periodEnd,
+        },
+        lineItems: lineItems.map((item) => ({
+          resourceType: item.resourceType,
+          description: item.description,
+          quantity: item.quantity,
+          unitCost: Number(item.unitCost),
+          total: Number(item.total),
+        })),
+        subtotal: Number(invoice.subtotal),
+        total: Number(invoice.total),
+        status: invoice.status,
+        createdAt: invoice.createdAt,
       };
     }
   );

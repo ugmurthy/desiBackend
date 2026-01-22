@@ -358,3 +358,19 @@ Thread: https://ampcode.com/threads/T-019be542-8703-755f-85ee-7495c5812397
   - Use Number() to convert unitCost before arithmetic to avoid string concatenation issues
   - Filter usage records by parsing metadata JSON to match executionId/dagId
 ---
+
+## 2026-01-22 - US-024
+Thread: https://ampcode.com/threads/T-019be544-b36f-75df-b864-e1e1db425ad5
+- Created billing usage endpoints at src/routes/v2/billing.ts
+- GET /api/v2/billing/usage returns current period usage (month to date)
+- GET /api/v2/billing/usage/history returns historical usage with date filters and pagination
+- Usage endpoint includes token/compute totals, costs, unique executions/DAGs count, and tenant quotas
+- History endpoint returns individual usage records with metadata, summary by resource type, and pagination
+- Registered billing routes in app.ts
+- Files changed: src/routes/v2/billing.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - Current period calculation: start of month to end of month using Date constructor
+  - Use Number() on totalCost values to ensure proper arithmetic
+  - Parse metadata JSON to extract executionId/dagId for unique counts using Set
+  - Pagination: slice records in-memory, include hasMore flag for client
+---
