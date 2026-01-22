@@ -35,6 +35,25 @@ interface ListDagsQuery {
   offset?: number;
 }
 
+interface ExecuteDagBody {
+  provider?: "openai" | "openrouter" | "ollama";
+  model?: string;
+}
+
+interface ExecuteDefinitionBody {
+  definition: Record<string, unknown>;
+  originalGoalText: string;
+}
+
+interface RunExperimentsBody {
+  goalText: string;
+  agentName: string;
+  provider: "openai" | "openrouter" | "ollama";
+  models: string[];
+  temperatures: number[];
+  seed?: number;
+}
+
 const dagsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: CreateDagBody }>(
     "/dags",
@@ -363,6 +382,154 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             statusCode: 404,
             error: "Not Found",
             message: "DAG not found",
+          });
+        }
+        if (error instanceof Error && error.name === "ValidationError") {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: "Bad Request",
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    }
+  );
+
+  fastify.post<{ Params: DagIdParams; Body: ExecuteDagBody }>(
+    "/dags/:id/execute",
+    {
+      preHandler: [authenticate],
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string" },
+          },
+        },
+        body: {
+          type: "object",
+          properties: {
+            provider: { type: "string", enum: ["openai", "openrouter", "ollama"] },
+            model: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params;
+      const { provider, model } = request.body;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      try {
+        const result = await client.dags.execute(id, { provider, model });
+        return reply.status(202).send({
+          id: result.id,
+          status: result.status,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "DAG not found",
+          });
+        }
+        throw error;
+      }
+    }
+  );
+
+  fastify.post<{ Body: ExecuteDefinitionBody }>(
+    "/dags/execute-definition",
+    {
+      preHandler: [authenticate],
+      schema: {
+        body: {
+          type: "object",
+          required: ["definition", "originalGoalText"],
+          properties: {
+            definition: { type: "object" },
+            originalGoalText: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { definition, originalGoalText } = request.body;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      try {
+        const result = await client.dags.executeDefinition({
+          definition,
+          originalGoalText,
+        });
+        return reply.status(202).send({
+          id: result.id,
+          status: result.status,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "ValidationError") {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: "Bad Request",
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    }
+  );
+
+  fastify.post<{ Body: RunExperimentsBody }>(
+    "/dags/experiments",
+    {
+      preHandler: [authenticate],
+      schema: {
+        body: {
+          type: "object",
+          required: ["goalText", "agentName", "provider", "models", "temperatures"],
+          properties: {
+            goalText: { type: "string", minLength: 1 },
+            agentName: { type: "string", minLength: 1 },
+            provider: { type: "string", enum: ["openai", "openrouter", "ollama"] },
+            models: { type: "array", items: { type: "string" }, minItems: 1 },
+            temperatures: { type: "array", items: { type: "number", minimum: 0, maximum: 2 }, minItems: 1 },
+            seed: { type: "integer" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { goalText, agentName, provider, models, temperatures, seed } = request.body;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      try {
+        const result = await client.dags.runExperiments({
+          goalText,
+          agentName,
+          provider,
+          models,
+          temperatures,
+          seed,
+        });
+        return reply.status(202).send(result);
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: error.message,
           });
         }
         if (error instanceof Error && error.name === "ValidationError") {
