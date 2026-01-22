@@ -221,3 +221,17 @@ Thread: https://ampcode.com/threads/T-019be527-6596-7778-952a-ada98ddaf88e
   - Handle ValidationError for duplicate name+version by checking error.message.includes("already exists")
   - Agent list returns all agents, pagination is applied in-memory with slice(offset, offset+limit)
 ---
+
+## 2026-01-22 - US-015
+Thread: https://ampcode.com/threads/T-019be529-f24d-74d1-b14b-1ac81d13982b
+- Added POST /api/v2/agents/:id/activate endpoint to activate an agent
+- Added GET /api/v2/agents/resolve/:name endpoint to resolve agent by name
+- Both endpoints use TenantClientService to get the desiAgent client scoped to tenant
+- Activate returns 404 if agent not found (NotFoundError check)
+- Resolve returns 404 with descriptive message if no active agent with that name
+- Files changed: src/routes/v2/agents.ts
+- **Learnings for future iterations:**
+  - client.agents.activate(id) returns the activated Agent with isActive=true
+  - client.agents.resolve(name) returns Agent|null (null if no active agent with that name)
+  - Route order matters in Fastify - /agents/resolve/:name must come before /agents/:id to avoid conflict
+---
