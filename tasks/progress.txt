@@ -203,3 +203,21 @@ Thread: https://ampcode.com/threads/T-019be525-dce6-73b8-a739-3e977c10590b
   - Use 409 Conflict for duplicate email on invite
   - Database operations like createUser, updateUserRole, deleteUser can be defined locally in route file
 ---
+
+## 2026-01-22 - US-014
+Thread: https://ampcode.com/threads/T-019be527-6596-7778-952a-ada98ddaf88e
+- Created Agents CRUD endpoints at src/routes/v2/agents.ts
+- POST /api/v2/agents creates agent with validation (name, version, systemPrompt required)
+- GET /api/v2/agents lists agents with filters (status, name) and pagination (limit, offset)
+- GET /api/v2/agents/:id gets agent by ID
+- PATCH /api/v2/agents/:id updates agent (name, version, systemPrompt, metadata)
+- DELETE /api/v2/agents/:id deletes agent (cannot delete active agents)
+- All operations scoped to authenticated tenant via TenantClientService
+- Registered agents routes in app.ts
+- Files changed: src/routes/v2/agents.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - Use TenantClientService.getClient(tenantId) to get desiAgent client, then access client.agents for agent operations
+  - Handle NotFoundError by checking error.name === "NotFoundError" (desiAgent custom error)
+  - Handle ValidationError for duplicate name+version by checking error.message.includes("already exists")
+  - Agent list returns all agents, pagination is applied in-memory with slice(offset, offset+limit)
+---
