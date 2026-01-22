@@ -7,6 +7,8 @@
 - Admin DB path: `~/.desiAgent/admin.db`
 - Tenant DB path: `~/.desiAgent/tenants/{tenant_id}/agent.db`
 - desiAgent client: Use TenantClientService.getClient(tenantId) to get/create clients per tenant
+- API key lookup: Use api_key_tenant_map table in admin DB to find tenant by key prefix
+- createApiKey requires tenantId parameter to register the key-tenant mapping
 ---
 
 ## 2026-01-22 - US-001
@@ -93,4 +95,20 @@ Thread: https://ampcode.com/threads/T-019be517-e6ea-72ad-ac64-a39d2a97460c
   - TenantClientService requires LLM config (provider, API keys, model) at initialization
   - Disable autoStartScheduler for backend clients (scheduler managed separately)
   - Client instances are cached by tenant ID to avoid repeated initialization
+---
+
+## 2026-01-22 - US-007
+Thread: https://ampcode.com/threads/T-019be51a-35f8-776d-86bb-d5609a06442b
+- Created auth middleware at src/middleware/authenticate.ts
+- Validates Authorization: Bearer desi_sk_... header format
+- Added api_key_tenant_map table to admin DB for quick tenant lookup by key prefix
+- Updated createApiKey to require tenantId and register key-tenant mapping
+- Updated revokeApiKey to remove mapping when key is deleted
+- Added ensureRole helper for role-based access control
+- Files changed: src/middleware/authenticate.ts, src/db/admin-schema.ts, src/services/api-key.ts
+- **Learnings for future iterations:**
+  - API keys are stored in tenant DBs but need a lookup table in admin DB to find which tenant owns the key
+  - Use api_key_tenant_map.keyPrefix to quickly route auth requests to the correct tenant DB
+  - Always check tenant.status === "active" before allowing authenticated requests
+  - Middleware attaches auth context to request.auth for downstream handlers
 ---
