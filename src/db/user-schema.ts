@@ -3,46 +3,52 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdirSync, existsSync } from "fs";
 
+export type UserRole = "admin" | "member" | "viewer";
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "member" | "viewer";
+  role: UserRole;
+  tenantId: string;
+  apiKeyId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export type UserRole = User["role"];
-
-const TENANTS_DIR = join(homedir(), ".desiAgent", "tenants");
+const TENANT_DB_BASE = join(homedir(), ".desiAgent", "tenants");
 
 export function getTenantDbPath(tenantId: string): string {
-  return join(TENANTS_DIR, tenantId, "agent.db");
+  return join(TENANT_DB_BASE, tenantId, "agent.db");
 }
 
-export function initializeTenantUserSchema(tenantId: string): Database {
-  const tenantDir = join(TENANTS_DIR, tenantId);
-
-  if (!existsSync(tenantDir)) {
-    mkdirSync(tenantDir, { recursive: true });
-  }
-
-  const dbPath = getTenantDbPath(tenantId);
-  const db = new Database(dbPath);
-
+export function initializeUserSchema(db: Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'member',
+      tenantId TEXT NOT NULL,
+      apiKeyId TEXT,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_tenantId ON users(tenantId);
     CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
   `);
+}
 
+export function initializeTenantUserSchema(tenantId: string): Database {
+  const tenantDir = join(TENANT_DB_BASE, tenantId);
+  if (!existsSync(tenantDir)) {
+    mkdirSync(tenantDir, { recursive: true });
+  }
+
+  const dbPath = getTenantDbPath(tenantId);
+  const db = new Database(dbPath);
+  initializeUserSchema(db);
   return db;
 }
