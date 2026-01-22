@@ -21,6 +21,41 @@ export interface TenantQuotas {
   maxTokensPerMonth?: number;
 }
 
+export interface SuperAdmin {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminApiKey {
+  id: string;
+  adminId: string;
+  keyHash: string;
+  keyPrefix: string;
+  scopes: string; // JSON array
+  expiresAt: string | null;
+  createdAt: string;
+  revokedAt: string | null;
+}
+
+export type AdminApiKeyScope = "admin" | "read" | "write" | "execute";
+
+export interface Agent {
+  id: string;
+  name: string;
+  version: string;
+  promptTemplate: string;
+  provider: string | null;
+  model: string | null;
+  active: number; // SQLite boolean (0 or 1)
+  metadata: string | null; // JSON string
+  createdAt: string;
+  updatedAt: string;
+}
+
 const ADMIN_DB_DIR = join(homedir(), ".desiAgent");
 const ADMIN_DB_PATH = join(ADMIN_DB_DIR, "admin.db");
 
@@ -64,6 +99,49 @@ export function initializeAdminDatabase(): Database {
     );
 
     CREATE INDEX IF NOT EXISTS idx_api_key_tenant_map_tenantId ON api_key_tenant_map(tenantId);
+
+    CREATE TABLE IF NOT EXISTS super_admins (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      passwordHash TEXT NOT NULL,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+      updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_super_admins_email ON super_admins(email);
+
+    CREATE TABLE IF NOT EXISTS admin_api_keys (
+      id TEXT PRIMARY KEY,
+      adminId TEXT NOT NULL,
+      keyHash TEXT NOT NULL,
+      keyPrefix TEXT NOT NULL,
+      scopes TEXT NOT NULL DEFAULT '[]',
+      expiresAt TEXT,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+      revokedAt TEXT,
+      FOREIGN KEY (adminId) REFERENCES super_admins(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_admin_api_keys_adminId ON admin_api_keys(adminId);
+    CREATE INDEX IF NOT EXISTS idx_admin_api_keys_keyPrefix ON admin_api_keys(keyPrefix);
+
+    CREATE TABLE IF NOT EXISTS agents (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      version TEXT NOT NULL,
+      promptTemplate TEXT NOT NULL,
+      provider TEXT,
+      model TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      metadata TEXT,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+      updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(name, version)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
+    CREATE INDEX IF NOT EXISTS idx_agents_active ON agents(active);
   `);
 
   return adminDb;

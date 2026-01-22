@@ -8,3 +8,13 @@
 - All timestamps stored as Unix timestamps (seconds)
 ---
 
+## 2026-01-22 - US-001
+Thread: https://ampcode.com/threads/T-019be5cf-5610-7741-b671-11973549e39a
+- Implemented Bootstrap CLI Command
+- Files changed: scripts/bootstrap.ts, package.json
+- **Learnings for future iterations:**
+  - The `--force` flag is parsed from `process.argv.slice(2)`
+  - CLI entry point is scripts/bootstrap.ts, to be extended by bootstrap service in US-009
+  - Script uses async main() pattern with proper exit codes
+---
+
