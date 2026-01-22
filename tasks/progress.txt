@@ -389,3 +389,20 @@ Thread: https://ampcode.com/threads/T-019be545-fbb5-7023-a6f7-134180186e44
   - List endpoint returns summary without lineItems, detail endpoint returns full lineItems
   - Use initializeAdminDatabase() before initializeBillingSchema() to ensure tables exist
 ---
+
+## 2026-01-22 - US-026
+Thread: https://ampcode.com/threads/T-019be547-90ee-74cd-8b98-78e7b347c2e3
+- Created admin service at src/services/admin.ts
+- Implemented createTenant(input) to create tenant with database initialization
+- Implemented getTenant(id) and getTenantBySlug(slug) for tenant retrieval
+- Implemented updateTenant(id, updates) for updating status, plan, quotas, name
+- Implemented listTenants(filters) with pagination (limit, offset) and filtering (status, plan)
+- Added suspendTenant() and activateTenant() helper functions
+- Plan-based default quotas (free, pro, enterprise tiers)
+- Files changed: src/services/admin.ts (new)
+- **Learnings for future iterations:**
+  - createTenant initializes tenant DB with user and api_key schemas automatically
+  - Use crypto.randomUUID() for tenant IDs
+  - PLAN_QUOTAS map provides default quotas based on plan tier
+  - Enterprise plan uses -1 for unlimited quotas
+---
