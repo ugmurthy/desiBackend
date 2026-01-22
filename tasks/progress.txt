@@ -41,3 +41,16 @@ Thread: https://ampcode.com/threads/T-019be5d0-90b8-701d-8699-d7a799023930
   - `force` option updates existing admin instead of skipping
 ---
 
+## 2026-01-22 - US-004
+Thread: https://ampcode.com/threads/T-019be5d4-f29d-75c5-85e9-a5fc01abede3
+- Implemented Admin API Key Generation service
+- Files changed: src/services/admin-api-key.ts
+- **Learnings for future iterations:**
+  - Admin API key service is in src/services/admin-api-key.ts
+  - Key format: `desi_sk_admin_{random32chars}`, prefix stored as `desi_sk_admin_xxxx` (first 4 chars of random)
+  - `createAdminApiKey()` returns `{ apiKey, fullKey, created }` - fullKey is null if key already exists
+  - Key saved to ~/.desiAgent/admin-key.txt with 600 permissions
+  - With `--force`, existing key is revoked (revokedAt set) before creating new one
+  - Uses `crypto.getRandomValues()` for secure random generation
+---
+
