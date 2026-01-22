@@ -49,3 +49,16 @@ Thread: https://ampcode.com/threads/T-019be514-e552-765a-a386-d0076f16e1dc
   - Store JSON fields as TEXT type in SQLite
   - Use DEFAULT datetime('now') for automatic timestamp fields
 ---
+
+## 2026-01-22 - US-004
+Thread: https://ampcode.com/threads/T-019be515-f1b6-7019-b66d-bea44e1f49e5
+- Created per-tenant user schema at src/db/user-schema.ts
+- User table with fields: id (UUID), email, name, role (admin|member|viewer), createdAt, updatedAt
+- Tenant databases at ~/.desiAgent/tenants/{tenant_id}/agent.db with auto-directory creation
+- Exported UserRole type alias and getTenantDbPath utility function
+- Files changed: src/db/user-schema.ts
+- **Learnings for future iterations:**
+  - Tenant DBs follow same pattern as admin DB but are located at ~/.desiAgent/tenants/{tenant_id}/agent.db
+  - initializeTenantUserSchema returns a Database instance that caller can use
+  - Export a UserRole type for use in other modules needing role validation
+---
