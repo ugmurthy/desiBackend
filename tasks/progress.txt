@@ -18,3 +18,14 @@ Thread: https://ampcode.com/threads/T-019be5cf-5610-7741-b671-11973549e39a
   - Script uses async main() pattern with proper exit codes
 ---
 
+## 2026-01-22 - US-002
+Thread: https://ampcode.com/threads/T-019be5d0-90b8-701d-8699-d7a799023930
+- Implemented Admin Database Schema Extensions
+- Files changed: src/db/admin-schema.ts
+- **Learnings for future iterations:**
+  - All schema tables are created in single `initializeAdminDatabase()` call using multi-statement exec
+  - TypeScript interfaces defined for SuperAdmin, AdminApiKey, and Agent types
+  - SQLite booleans stored as INTEGER (0 or 1) - see `active` field in agents table
+  - UNIQUE constraint added using `UNIQUE(name, version)` syntax in table definition
+---
+
