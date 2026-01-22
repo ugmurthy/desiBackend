@@ -7,6 +7,7 @@ import errorHandler from "./plugins/error-handler";
 import healthRoutes from "./routes/v2/health";
 import authRoutes from "./routes/v2/auth";
 import usersRoutes from "./routes/v2/users";
+import agentsRoutes from "./routes/v2/agents";
 
 export async function buildApp() {
   const app = Fastify({
@@ -59,6 +60,7 @@ export async function buildApp() {
   await app.register(healthRoutes, { prefix: "/api/v2" });
   await app.register(authRoutes, { prefix: "/api/v2" });
   await app.register(usersRoutes, { prefix: "/api/v2" });
+  await app.register(agentsRoutes, { prefix: "/api/v2" });
 
   return app;
 }

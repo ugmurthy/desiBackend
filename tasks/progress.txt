@@ -186,3 +186,20 @@ Thread: https://ampcode.com/threads/T-019be524-c433-72dc-9b0d-ef297c2d7871
   - Return 201 for POST creates, 204 for DELETE success
   - Reuse existing api-key service functions (createApiKey, listApiKeys, revokeApiKey)
 ---
+
+## 2026-01-22 - US-013
+Thread: https://ampcode.com/threads/T-019be525-dce6-73b8-a739-3e977c10590b
+- Created user management endpoints at src/routes/v2/users.ts
+- GET /api/v2/users lists tenant users (admin only)
+- GET /api/v2/users/:id gets user by ID (any authenticated user)
+- PATCH /api/v2/users/:id updates user role (admin only)
+- DELETE /api/v2/users/:id removes user from tenant (admin only, prevents self-deletion)
+- POST /api/v2/users/invite invites user to tenant (admin only), returns 409 if email exists
+- All admin-only endpoints use ensureRole("admin") middleware
+- Files changed: src/routes/v2/users.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - Use ensureRole("admin") as second preHandler after authenticate for role-based access control
+  - Prevent users from deleting themselves to avoid orphaned tenants
+  - Use 409 Conflict for duplicate email on invite
+  - Database operations like createUser, updateUserRole, deleteUser can be defined locally in route file
+---
