@@ -18,6 +18,7 @@
     "@fastify/env": "^5.0.3",
     "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^10.3.0",
+    "@ugm/desiagent": "file:../desiAgent",
     "bcrypt": "^6.0.0",
     "fastify": "^5.7.1",
     "fastify-plugin": "^5.1.0"

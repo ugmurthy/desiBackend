@@ -62,3 +62,18 @@ Thread: https://ampcode.com/threads/T-019be515-f1b6-7019-b66d-bea44e1f49e5
   - initializeTenantUserSchema returns a Database instance that caller can use
   - Export a UserRole type for use in other modules needing role validation
 ---
+
+## 2026-01-22 - US-005
+Thread: https://ampcode.com/threads/T-019be516-b1b9-7298-9a4b-281d4e5c0a26
+- Created API key schema at src/db/api-key-schema.ts with ApiKey table
+- ApiKey fields: id, userId, name, keyPrefix, keyHash (bcrypt), scopes (JSON), expiresAt, createdAt
+- Created src/services/api-key.ts with create, validate, list, revoke functions
+- API key format: desi_sk_{env}_{random} (e.g., desi_sk_live_abc123def456...)
+- Keys stored as bcrypt hashes, only prefix returned after creation
+- Files changed: src/db/api-key-schema.ts, src/services/api-key.ts
+- **Learnings for future iterations:**
+  - API key prefix extraction: slice to `indexOf("_", 10) + 1 + KEY_PREFIX_LENGTH` to capture `desi_sk_live_` plus 8 chars
+  - Use bcrypt `hash()` and `compare()` for secure API key storage and validation
+  - initializeApiKeySchema must be called on a tenant database after initializeTenantUserSchema
+  - Return fullKey only once at creation; subsequent queries only show keyPrefix
+---
