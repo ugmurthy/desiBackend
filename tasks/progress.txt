@@ -342,3 +342,19 @@ Thread: https://ampcode.com/threads/T-019be541-8169-768e-858e-aa044afb7f4b
   - DateRange interface with start/end strings for date filtering
   - Usage queries use timestamp column for date range filtering
 ---
+
+## 2026-01-22 - US-023
+Thread: https://ampcode.com/threads/T-019be542-8703-755f-85ee-7495c5812397
+- Created costs endpoints at src/routes/v2/costs.ts
+- GET /api/v2/costs/executions/:id returns execution cost breakdown with usage and costs
+- GET /api/v2/costs/dags/:id returns DAG cost breakdown with all execution summaries
+- GET /api/v2/costs/summary returns tenant cost summary with optional date filters
+- Cost data includes token counts, model used, calculated token and compute costs
+- Registered costs routes in app.ts
+- Files changed: src/routes/v2/costs.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - execution.totalUsage has promptTokens/completionTokens (not input/output)
+  - DAG object has objective field (not dagTitle) for the main description
+  - Use Number() to convert unitCost before arithmetic to avoid string concatenation issues
+  - Filter usage records by parsing metadata JSON to match executionId/dagId
+---
