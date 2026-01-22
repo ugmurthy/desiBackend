@@ -3,9 +3,10 @@
 - Run `bun run typecheck` to verify TypeScript correctness
 - SQLite: Use Bun's built-in `bun:sqlite` module for database operations
 - Admin DB path: `~/.desiAgent/admin.db`
-- Tenant DB path: `~/.desiAgent/tenants/{tenant_id}/agent.db`
+- Tenant DB path: `~/.desiAgent/tenants/{tenant_id}/agent.db` - use `getTenantDbPath(tenantId)` from user-schema.ts
 - Use bcrypt for password/API key hashing (cost factor 12)
 - All timestamps stored as Unix timestamps (seconds)
+- User schema initialization: Use `initializeTenantUserSchema(tenantId)` which handles directory creation and returns the DB
 ---
 
 ## 2026-01-22 - US-001
@@ -52,5 +53,17 @@ Thread: https://ampcode.com/threads/T-019be5d4-f29d-75c5-85e9-a5fc01abede3
   - Key saved to ~/.desiAgent/admin-key.txt with 600 permissions
   - With `--force`, existing key is revoked (revokedAt set) before creating new one
   - Uses `crypto.getRandomValues()` for secure random generation
+---
+
+## 2026-01-22 - US-005
+Thread: https://ampcode.com/threads/T-019be5d6-f6cc-77d7-af9b-ddacf33a60c3
+- Implemented User Table Schema for tenant databases
+- Files changed: src/db/user-schema.ts
+- **Learnings for future iterations:**
+  - User schema is in src/db/user-schema.ts
+  - `getTenantDbPath(tenantId)` returns path to tenant's agent.db file
+  - `initializeTenantUserSchema(tenantId)` creates tenant directory, database, and initializes user schema
+  - Tenant DB path follows pattern: ~/.desiAgent/tenants/{tenantId}/agent.db
+  - User role is typed as `"admin" | "member" | "viewer"`
 ---
 
