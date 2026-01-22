@@ -4,6 +4,8 @@
  * Usage: bun run bootstrap-admin [--force]
  */
 
+import { runBootstrap } from "../src/services/bootstrap";
+
 const args = process.argv.slice(2);
 const force = args.includes("--force");
 
@@ -12,10 +14,9 @@ async function main(): Promise<void> {
   console.log(`   Force mode: ${force ? "enabled" : "disabled"}`);
   console.log("");
 
-  // TODO: In future stories, this will call the bootstrap service
-  // For now, just demonstrate the CLI structure
-  console.log("✅ Bootstrap CLI initialized successfully");
-  console.log("   (Full functionality will be added in subsequent stories)");
+  await runBootstrap({ force });
+
+  console.log("\n✅ Bootstrap completed successfully!");
 }
 
 main()
