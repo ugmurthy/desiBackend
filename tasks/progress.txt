@@ -6,6 +6,7 @@
 - SQLite: Use Bun's built-in `bun:sqlite` module for database operations
 - Admin DB path: `~/.desiAgent/admin.db`
 - Tenant DB path: `~/.desiAgent/tenants/{tenant_id}/agent.db`
+- desiAgent client: Use TenantClientService.getClient(tenantId) to get/create clients per tenant
 ---
 
 ## 2026-01-22 - US-001
@@ -76,4 +77,20 @@ Thread: https://ampcode.com/threads/T-019be516-b1b9-7298-9a4b-281d4e5c0a26
   - Use bcrypt `hash()` and `compare()` for secure API key storage and validation
   - initializeApiKeySchema must be called on a tenant database after initializeTenantUserSchema
   - Return fullKey only once at creation; subsequent queries only show keyPrefix
+---
+
+## 2026-01-22 - US-006
+Thread: https://ampcode.com/threads/T-019be517-e6ea-72ad-ac64-a39d2a97460c
+- Created TenantClientService at src/services/tenant-client.ts
+- Added @ugm/desiagent as local dependency (file:../desiAgent)
+- TenantClientService manages desiAgent client instances keyed by tenant ID
+- getClient(tenantId) returns or creates client with tenant-specific database path
+- Includes removeClient() and shutdownAll() for proper cleanup
+- Singleton pattern with initializeTenantClientService() and getTenantClientService()
+- Files changed: package.json, bun.lock, src/services/tenant-client.ts
+- **Learnings for future iterations:**
+  - Use `file:../desiAgent` syntax to link local packages in Bun
+  - TenantClientService requires LLM config (provider, API keys, model) at initialization
+  - Disable autoStartScheduler for backend clients (scheduler managed separately)
+  - Client instances are cached by tenant ID to avoid repeated initialization
 ---
