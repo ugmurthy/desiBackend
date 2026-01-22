@@ -269,3 +269,21 @@ Thread: https://ampcode.com/threads/T-019be52e-3a1c-71fb-8c43-5a2154b15701
   - client.dags.runExperiments() takes goalText, agentName, provider, models[], temperatures[]
   - Execute endpoints should return 202 Accepted since execution is async
 ---
+
+## 2026-01-22 - US-018
+Thread: https://ampcode.com/threads/T-019be52f-f577-756e-ba83-19af8911fea1
+- Created Executions CRUD endpoints at src/routes/v2/executions.ts
+- GET /api/v2/executions lists executions with filters (status, dagId) and pagination
+- GET /api/v2/executions/:id gets execution by ID
+- GET /api/v2/executions/:id/details gets execution with sub-steps via getWithSubSteps()
+- GET /api/v2/executions/:id/sub-steps gets sub-steps only via getSubSteps()
+- DELETE /api/v2/executions/:id deletes execution
+- Registered executions routes in app.ts
+- Files changed: src/routes/v2/executions.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - client.executions.list(filter) supports dagId, status, limit, offset filters
+  - client.executions.get(id) returns single DAGExecution
+  - client.executions.getWithSubSteps(id) returns DAGExecutionWithSteps including subSteps array
+  - client.executions.getSubSteps(id) returns only the SubStep[] array
+  - Resume functionality is on client.dags.resume(executionId), not on executions service
+---
