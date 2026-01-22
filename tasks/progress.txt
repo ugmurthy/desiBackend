@@ -67,3 +67,14 @@ Thread: https://ampcode.com/threads/T-019be5d6-f6cc-77d7-af9b-ddacf33a60c3
   - User role is typed as `"admin" | "member" | "viewer"`
 ---
 
+## 2026-01-22 - US-006
+Thread: https://ampcode.com/threads/T-019be5d8-671a-74d5-92d2-5f95c0039be2
+- Implemented Example Agents CSV File
+- Files changed: scripts/example-agents.csv
+- **Learnings for future iterations:**
+  - CSV file uses comment lines starting with `#` for documentation
+  - Agent seed file location is `~/.desiAgent/seed/agents.csv`
+  - Example includes 3 sample agents: translator, code-reviewer, summarizer
+  - Metadata field can be empty or contain JSON string with double-escaped quotes for CSV
+---
+
