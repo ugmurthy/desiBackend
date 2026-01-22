@@ -406,3 +406,21 @@ Thread: https://ampcode.com/threads/T-019be547-90ee-74cd-8b98-78e7b347c2e3
   - PLAN_QUOTAS map provides default quotas based on plan tier
   - Enterprise plan uses -1 for unlimited quotas
 ---
+
+## 2026-01-22 - US-027
+Thread: https://ampcode.com/threads/T-019be548-f0e6-737a-9f1b-0afc9f1e99f3
+- Created admin tenant endpoints at src/routes/v2/admin.ts
+- GET /api/v2/admin/tenants lists all tenants with pagination and filters (status, plan)
+- POST /api/v2/admin/tenants creates new tenant with validation (slug must be lowercase alphanumeric with dashes)
+- GET /api/v2/admin/tenants/:id gets tenant details with parsed quotas
+- PATCH /api/v2/admin/tenants/:id updates tenant (name, status, plan, quotas)
+- DELETE /api/v2/admin/tenants/:id suspends tenant by default, or deletes with ?action=delete query param
+- Implemented ensureSuperAdmin middleware to check for "super_admin" scope in API key
+- Registered admin routes in app.ts
+- Files changed: src/routes/v2/admin.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - super_admin scope already exists in ApiKeyScope type, use it for admin-level operations
+  - Use ensureSuperAdmin as preHandler after authenticate to check API key scopes
+  - DELETE endpoint supports both suspend (default) and delete (via ?action=delete) behaviors
+  - Parse tenant.quotas from JSON string when returning in responses
+---

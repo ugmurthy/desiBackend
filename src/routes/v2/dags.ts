@@ -54,6 +54,15 @@ interface RunExperimentsBody {
   seed?: number;
 }
 
+const EXECUTION_RATE_LIMIT = {
+  config: {
+    rateLimit: {
+      max: 20,
+      timeWindow: "1 minute",
+    },
+  },
+};
+
 const dagsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: CreateDagBody }>(
     "/dags",
@@ -399,6 +408,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: DagIdParams; Body: ExecuteDagBody }>(
     "/dags/:id/execute",
     {
+      ...EXECUTION_RATE_LIMIT,
       preHandler: [authenticate],
       schema: {
         params: {
@@ -447,6 +457,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: ExecuteDefinitionBody }>(
     "/dags/execute-definition",
     {
+      ...EXECUTION_RATE_LIMIT,
       preHandler: [authenticate],
       schema: {
         body: {
@@ -491,6 +502,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: RunExperimentsBody }>(
     "/dags/experiments",
     {
+      ...EXECUTION_RATE_LIMIT,
       preHandler: [authenticate],
       schema: {
         body: {

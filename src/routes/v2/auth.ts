@@ -12,10 +12,20 @@ interface ApiKeyIdParams {
   id: string;
 }
 
+const AUTH_RATE_LIMIT = {
+  config: {
+    rateLimit: {
+      max: 10,
+      timeWindow: "1 minute",
+    },
+  },
+};
+
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get(
     "/auth/me",
     {
+      ...AUTH_RATE_LIMIT,
       preHandler: [authenticate],
     },
     async (request) => {
@@ -39,6 +49,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get(
     "/auth/api-keys",
     {
+      ...AUTH_RATE_LIMIT,
       preHandler: [authenticate],
     },
     async (request) => {
@@ -61,6 +72,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: CreateApiKeyBody }>(
     "/auth/api-keys",
     {
+      ...AUTH_RATE_LIMIT,
       preHandler: [authenticate],
       schema: {
         body: {
@@ -103,6 +115,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Params: ApiKeyIdParams }>(
     "/auth/api-keys/:id",
     {
+      ...AUTH_RATE_LIMIT,
       preHandler: [authenticate],
       schema: {
         params: {
