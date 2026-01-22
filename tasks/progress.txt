@@ -287,3 +287,16 @@ Thread: https://ampcode.com/threads/T-019be52f-f577-756e-ba83-19af8911fea1
   - client.executions.getSubSteps(id) returns only the SubStep[] array
   - Resume functionality is on client.dags.resume(executionId), not on executions service
 ---
+
+## 2026-01-22 - US-019
+Thread: https://ampcode.com/threads/T-019be531-b1b2-7355-bd7f-dbf1724b8a69
+- Added POST /api/v2/executions/:id/resume endpoint to resume paused executions
+- Checks execution status is "suspended" or "waiting" before allowing resume
+- Returns 400 error if execution is not in a paused state with current status in message
+- Uses client.dags.resume(executionId) to resume execution
+- Returns 202 Accepted with execution id and status
+- Files changed: src/routes/v2/executions.ts
+- **Learnings for future iterations:**
+  - Resume endpoint is on executions route but calls client.dags.resume(id)
+  - Check for both "suspended" and "waiting" status as valid paused states
+---
