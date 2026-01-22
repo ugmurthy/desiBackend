@@ -1,0 +1,440 @@
+## Codebase Patterns
+- Use `type` imports for TypeScript types with verbatimModuleSyntax enabled (e.g., `import type { FastifyPluginAsync }`)
+- Run `bun run typecheck` to verify TypeScript correctness
+- Health endpoint pattern: Register routes with prefix in app.ts, export as default from route file
+- Use `fastify-plugin` (fp) wrapper for plugins that need to be encapsulated properly
+- SQLite: Use Bun's built-in `bun:sqlite` module for database operations
+- Admin DB path: `~/.desiAgent/admin.db`
+- Tenant DB path: `~/.desiAgent/tenants/{tenant_id}/agent.db`
+- desiAgent client: Use TenantClientService.getClient(tenantId) to get/create clients per tenant
+- API key lookup: Use api_key_tenant_map table in admin DB to find tenant by key prefix
+- createApiKey requires tenantId parameter to register the key-tenant mapping
+- Fastify type extensions: Use `declare module "fastify"` in src/types/fastify.d.ts
+- decorateRequest: Use `undefined` (not `null`) as initial value to satisfy TypeScript
+- DAG routes: client.dags exposes createFromGoal, list, listScheduled, get, update, safeDelete, execute, executeDefinition, runExperiments
+- Async execution endpoints: Return 202 Accepted for operations that run in background
+- Route-specific rate limits: Use `config: { rateLimit: { max, timeWindow } }` in route options
+---
+
+## 2026-01-22 - US-001
+Thread: https://ampcode.com/threads/T-019be511-0bf1-70ac-9194-020f8302229a
+- Initialized Bun project with Fastify framework
+- Installed dependencies: fastify, @fastify/cors, @fastify/env, @fastify/multipart, @fastify/rate-limit, bcrypt
+- Created project structure: src/routes/v2, src/services, src/plugins, src/middleware, src/db, src/types, src/utils, src/config
+- Configured environment schema in src/config/env.ts
+- Created health check endpoint at GET /api/v2/health returning { status: 'ok' }
+- Files changed: package.json, tsconfig.json, src/index.ts, src/app.ts, src/config/env.ts, src/routes/v2/health.ts
+- **Learnings for future iterations:**
+  - Must use `import type` for TypeScript types due to verbatimModuleSyntax in tsconfig
+  - Fastify env plugin uses `confKey` to define where config is accessible (app.config)
+  - Route plugins should export default and be registered with prefix in app.ts
+---
+
+## 2026-01-22 - US-002
+Thread: https://ampcode.com/threads/T-019be513-a932-7447-bbc3-4f758372af55
+- Created global error handler plugin at src/plugins/error-handler.ts
+- Implemented standard error format: { statusCode, error, message, details }
+- Validation errors return 400 with field-level details
+- Not found errors return 404
+- Unhandled errors return 500 without leaking internals
+- Files changed: src/plugins/error-handler.ts, src/app.ts, package.json
+- **Learnings for future iterations:**
+  - Use `fastify-plugin` (fp) to wrap plugins so they share scope with parent
+  - Fastify error handler receives FastifyError which has optional statusCode and validation properties
+  - ValidationError from Fastify's Ajv includes a `validation` array with field-level error details
+---
+
+## 2026-01-22 - US-003
+Thread: https://ampcode.com/threads/T-019be514-e552-765a-a386-d0076f16e1dc
+- Created admin database schema at src/db/admin-schema.ts
+- Tenant table with fields: id (UUID), name, slug, status, plan, quotas (JSON), createdAt, updatedAt
+- Admin database created at ~/.desiAgent/admin.db with auto-directory creation
+- Database initialization function creates tables if not exist with proper indexes
+- Files changed: src/db/admin-schema.ts
+- **Learnings for future iterations:**
+  - Use Bun's built-in `bun:sqlite` module - no additional dependencies needed
+  - Use `mkdirSync` with `{ recursive: true }` to create directory hierarchy
+  - Store JSON fields as TEXT type in SQLite
+  - Use DEFAULT datetime('now') for automatic timestamp fields
+---
+
+## 2026-01-22 - US-004
+Thread: https://ampcode.com/threads/T-019be515-f1b6-7019-b66d-bea44e1f49e5
+- Created per-tenant user schema at src/db/user-schema.ts
+- User table with fields: id (UUID), email, name, role (admin|member|viewer), createdAt, updatedAt
+- Tenant databases at ~/.desiAgent/tenants/{tenant_id}/agent.db with auto-directory creation
+- Exported UserRole type alias and getTenantDbPath utility function
+- Files changed: src/db/user-schema.ts
+- **Learnings for future iterations:**
+  - Tenant DBs follow same pattern as admin DB but are located at ~/.desiAgent/tenants/{tenant_id}/agent.db
+  - initializeTenantUserSchema returns a Database instance that caller can use
+  - Export a UserRole type for use in other modules needing role validation
+---
+
+## 2026-01-22 - US-005
+Thread: https://ampcode.com/threads/T-019be516-b1b9-7298-9a4b-281d4e5c0a26
+- Created API key schema at src/db/api-key-schema.ts with ApiKey table
+- ApiKey fields: id, userId, name, keyPrefix, keyHash (bcrypt), scopes (JSON), expiresAt, createdAt
+- Created src/services/api-key.ts with create, validate, list, revoke functions
+- API key format: desi_sk_{env}_{random} (e.g., desi_sk_live_abc123def456...)
+- Keys stored as bcrypt hashes, only prefix returned after creation
+- Files changed: src/db/api-key-schema.ts, src/services/api-key.ts
+- **Learnings for future iterations:**
+  - API key prefix extraction: slice to `indexOf("_", 10) + 1 + KEY_PREFIX_LENGTH` to capture `desi_sk_live_` plus 8 chars
+  - Use bcrypt `hash()` and `compare()` for secure API key storage and validation
+  - initializeApiKeySchema must be called on a tenant database after initializeTenantUserSchema
+  - Return fullKey only once at creation; subsequent queries only show keyPrefix
+---
+
+## 2026-01-22 - US-006
+Thread: https://ampcode.com/threads/T-019be517-e6ea-72ad-ac64-a39d2a97460c
+- Created TenantClientService at src/services/tenant-client.ts
+- Added @ugm/desiagent as local dependency (file:../desiAgent)
+- TenantClientService manages desiAgent client instances keyed by tenant ID
+- getClient(tenantId) returns or creates client with tenant-specific database path
+- Includes removeClient() and shutdownAll() for proper cleanup
+- Singleton pattern with initializeTenantClientService() and getTenantClientService()
+- Files changed: package.json, bun.lock, src/services/tenant-client.ts
+- **Learnings for future iterations:**
+  - Use `file:../desiAgent` syntax to link local packages in Bun
+  - TenantClientService requires LLM config (provider, API keys, model) at initialization
+  - Disable autoStartScheduler for backend clients (scheduler managed separately)
+  - Client instances are cached by tenant ID to avoid repeated initialization
+---
+
+## 2026-01-22 - US-007
+Thread: https://ampcode.com/threads/T-019be51a-35f8-776d-86bb-d5609a06442b
+- Created auth middleware at src/middleware/authenticate.ts
+- Validates Authorization: Bearer desi_sk_... header format
+- Added api_key_tenant_map table to admin DB for quick tenant lookup by key prefix
+- Updated createApiKey to require tenantId and register key-tenant mapping
+- Updated revokeApiKey to remove mapping when key is deleted
+- Added ensureRole helper for role-based access control
+- Files changed: src/middleware/authenticate.ts, src/db/admin-schema.ts, src/services/api-key.ts
+- **Learnings for future iterations:**
+  - API keys are stored in tenant DBs but need a lookup table in admin DB to find which tenant owns the key
+  - Use api_key_tenant_map.keyPrefix to quickly route auth requests to the correct tenant DB
+  - Always check tenant.status === "active" before allowing authenticated requests
+  - Middleware attaches auth context to request.auth for downstream handlers
+  - Tenant context plugin uses onRequest hook to populate request.tenantContext with desiClient after auth
+  ---
+
+  ## 2026-01-22 - US-008
+  Thread: https://ampcode.com/threads/T-019be51c-5819-736d-a73f-44c574e7d917
+  - Created tenant context plugin at src/plugins/tenant.ts
+  - Plugin decorates request with tenantContext containing tenant, user, and desiClient
+  - Extended Fastify types in src/types/fastify.d.ts with auth and tenantContext properties
+  - Plugin uses onRequest hook to populate context from auth middleware
+  - Uses TenantClientService.getClient() to retrieve/create desiAgent client per tenant
+  - Files changed: src/plugins/tenant.ts, src/types/fastify.d.ts
+  - **Learnings for future iterations:**
+    - Use `decorateRequest` with `undefined` (not `null`) to satisfy TypeScript types
+    - Tenant plugin depends on auth middleware running first to populate request.auth
+    - TenantContext is only populated when request.auth exists (authenticated routes)
+    - Fastify type extensions go in src/types/fastify.d.ts using `declare module "fastify"`
+  ---
+
+## 2026-01-22 - US-009
+Thread: https://ampcode.com/threads/T-019be51e-19eb-768a-9bd3-09a5b5673af3
+- Configured @fastify/rate-limit in src/app.ts
+- Default rate limit: 100 requests per minute
+- Rate limit headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
+- 429 response with clear error message when exceeded
+- Limits applied per API key using keyGenerator that extracts key prefix
+- Falls back to IP if no valid API key present
+- Files changed: src/app.ts
+- **Learnings for future iterations:**
+  - Use keyGenerator option to apply rate limits per API key prefix
+  - addHeadersOnExceeding adds headers to all responses, addHeaders controls 429 response headers
+  - errorResponseBuilder customizes the 429 error response format
+  - Extract key prefix using same logic as authenticate middleware for consistency
+---
+
+## 2026-01-22 - US-010
+Thread: https://ampcode.com/threads/T-019be51f-2bb1-70c8-9416-abaa2e807aed
+- Extended health routes with liveness and readiness endpoints
+- GET /api/v2/health returns status, version (1.0.0), and uptime in seconds
+- GET /api/v2/health/ready checks admin DB connectivity and returns ready/not_ready status
+- Health endpoints remain exempt from authentication (no auth middleware applied)
+- Files changed: src/routes/v2/health.ts
+- **Learnings for future iterations:**
+  - Use `db.query("SELECT 1 as check_value").get()` to test SQLite connectivity
+  - startTime tracked at module level for accurate uptime calculation
+  - Readiness checks should catch and report DB errors gracefully
+---
+
+## 2026-01-22 - US-011
+Thread: https://ampcode.com/threads/T-019be523-7f4d-74c8-924f-f0bba70e51fd
+- Created GET /api/v2/auth/me endpoint in src/routes/v2/auth.ts
+- Returns current user info: id, email, name, role, tenant info (id, name, slug, plan)
+- Uses authenticate middleware for API key validation
+- Registered auth routes in app.ts with /api/v2 prefix
+- Files changed: src/routes/v2/auth.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - Auth routes use the `request.auth!` non-null assertion since authenticate middleware guarantees it exists
+  - Tenant info in response should only include non-sensitive fields (id, name, slug, plan)
+---
+
+## 2026-01-22 - US-012
+Thread: https://ampcode.com/threads/T-019be524-c433-72dc-9b0d-ef297c2d7871
+- Added API key management endpoints to src/routes/v2/auth.ts
+- GET /api/v2/auth/api-keys lists user's API keys (prefix only, not full key)
+- POST /api/v2/auth/api-keys creates new API key with validation schema, returns full key once
+- DELETE /api/v2/auth/api-keys/:id revokes API key, returns 404 if not found
+- All endpoints require valid API key authentication via authenticate middleware
+- Files changed: src/routes/v2/auth.ts
+- **Learnings for future iterations:**
+  - Use Fastify's generic types for route handlers (e.g., `fastify.post<{ Body: CreateApiKeyBody }>`)
+  - Define request body interfaces locally when only used in one file
+  - Return 201 for POST creates, 204 for DELETE success
+  - Reuse existing api-key service functions (createApiKey, listApiKeys, revokeApiKey)
+---
+
+## 2026-01-22 - US-013
+Thread: https://ampcode.com/threads/T-019be525-dce6-73b8-a739-3e977c10590b
+- Created user management endpoints at src/routes/v2/users.ts
+- GET /api/v2/users lists tenant users (admin only)
+- GET /api/v2/users/:id gets user by ID (any authenticated user)
+- PATCH /api/v2/users/:id updates user role (admin only)
+- DELETE /api/v2/users/:id removes user from tenant (admin only, prevents self-deletion)
+- POST /api/v2/users/invite invites user to tenant (admin only), returns 409 if email exists
+- All admin-only endpoints use ensureRole("admin") middleware
+- Files changed: src/routes/v2/users.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - Use ensureRole("admin") as second preHandler after authenticate for role-based access control
+  - Prevent users from deleting themselves to avoid orphaned tenants
+  - Use 409 Conflict for duplicate email on invite
+  - Database operations like createUser, updateUserRole, deleteUser can be defined locally in route file
+---
+
+## 2026-01-22 - US-014
+Thread: https://ampcode.com/threads/T-019be527-6596-7778-952a-ada98ddaf88e
+- Created Agents CRUD endpoints at src/routes/v2/agents.ts
+- POST /api/v2/agents creates agent with validation (name, version, systemPrompt required)
+- GET /api/v2/agents lists agents with filters (status, name) and pagination (limit, offset)
+- GET /api/v2/agents/:id gets agent by ID
+- PATCH /api/v2/agents/:id updates agent (name, version, systemPrompt, metadata)
+- DELETE /api/v2/agents/:id deletes agent (cannot delete active agents)
+- All operations scoped to authenticated tenant via TenantClientService
+- Registered agents routes in app.ts
+- Files changed: src/routes/v2/agents.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - Use TenantClientService.getClient(tenantId) to get desiAgent client, then access client.agents for agent operations
+  - Handle NotFoundError by checking error.name === "NotFoundError" (desiAgent custom error)
+  - Handle ValidationError for duplicate name+version by checking error.message.includes("already exists")
+  - Agent list returns all agents, pagination is applied in-memory with slice(offset, offset+limit)
+---
+
+## 2026-01-22 - US-015
+Thread: https://ampcode.com/threads/T-019be529-f24d-74d1-b14b-1ac81d13982b
+- Added POST /api/v2/agents/:id/activate endpoint to activate an agent
+- Added GET /api/v2/agents/resolve/:name endpoint to resolve agent by name
+- Both endpoints use TenantClientService to get the desiAgent client scoped to tenant
+- Activate returns 404 if agent not found (NotFoundError check)
+- Resolve returns 404 with descriptive message if no active agent with that name
+- Files changed: src/routes/v2/agents.ts
+- **Learnings for future iterations:**
+  - client.agents.activate(id) returns the activated Agent with isActive=true
+  - client.agents.resolve(name) returns Agent|null (null if no active agent with that name)
+  - Route order matters in Fastify - /agents/resolve/:name must come before /agents/:id to avoid conflict
+---
+
+## 2026-01-22 - US-016
+Thread: https://ampcode.com/threads/T-019be52b-3499-7317-adaf-bc175321ce0d
+- Created DAGs CRUD endpoints at src/routes/v2/dags.ts
+- POST /api/v2/dags creates DAG from goal via client.dags.createFromGoal()
+- GET /api/v2/dags lists DAGs with filters (status, createdAfter, createdBefore) and pagination
+- GET /api/v2/dags/scheduled lists scheduled DAGs via client.dags.listScheduled()
+- GET /api/v2/dags/:id gets DAG by ID
+- PATCH /api/v2/dags/:id updates DAG (status, cronSchedule, scheduleActive, timezone, dagTitle)
+- DELETE /api/v2/dags/:id safe deletes DAG via client.dags.safeDelete()
+- Registered dags routes in app.ts
+- Files changed: src/routes/v2/dags.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - client.dags.createFromGoal() returns a union type: clarification_required | success with dagId | success with result
+  - Use 202 status for clarification_required responses
+  - client.dags.safeDelete() throws ValidationError if executions exist for the DAG
+  - client.dags.listScheduled() returns ScheduledDAGInfo[] with scheduleDescription human-readable cron
+---
+
+## 2026-01-22 - US-017
+Thread: https://ampcode.com/threads/T-019be52e-3a1c-71fb-8c43-5a2154b15701
+- Added POST /api/v2/dags/:id/execute to execute DAG by ID with optional provider/model params
+- Added POST /api/v2/dags/execute-definition to execute a DAG definition directly
+- Added POST /api/v2/dags/experiments to run experiments across multiple models and temperatures
+- All endpoints use TenantClientService for tenant scoping, return 202 for async execution
+- Files changed: src/routes/v2/dags.ts
+- **Learnings for future iterations:**
+  - client.dags.execute(dagId, options) returns { id, status } - async execution returns 202
+  - client.dags.executeDefinition({ definition, originalGoalText }) takes a DAG definition object
+  - client.dags.runExperiments() takes goalText, agentName, provider, models[], temperatures[]
+  - Execute endpoints should return 202 Accepted since execution is async
+---
+
+## 2026-01-22 - US-018
+Thread: https://ampcode.com/threads/T-019be52f-f577-756e-ba83-19af8911fea1
+- Created Executions CRUD endpoints at src/routes/v2/executions.ts
+- GET /api/v2/executions lists executions with filters (status, dagId) and pagination
+- GET /api/v2/executions/:id gets execution by ID
+- GET /api/v2/executions/:id/details gets execution with sub-steps via getWithSubSteps()
+- GET /api/v2/executions/:id/sub-steps gets sub-steps only via getSubSteps()
+- DELETE /api/v2/executions/:id deletes execution
+- Registered executions routes in app.ts
+- Files changed: src/routes/v2/executions.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - client.executions.list(filter) supports dagId, status, limit, offset filters
+  - client.executions.get(id) returns single DAGExecution
+  - client.executions.getWithSubSteps(id) returns DAGExecutionWithSteps including subSteps array
+  - client.executions.getSubSteps(id) returns only the SubStep[] array
+  - Resume functionality is on client.dags.resume(executionId), not on executions service
+---
+
+## 2026-01-22 - US-019
+Thread: https://ampcode.com/threads/T-019be531-b1b2-7355-bd7f-dbf1724b8a69
+- Added POST /api/v2/executions/:id/resume endpoint to resume paused executions
+- Checks execution status is "suspended" or "waiting" before allowing resume
+- Returns 400 error if execution is not in a paused state with current status in message
+- Uses client.dags.resume(executionId) to resume execution
+- Returns 202 Accepted with execution id and status
+- Files changed: src/routes/v2/executions.ts
+- **Learnings for future iterations:**
+  - Resume endpoint is on executions route but calls client.dags.resume(id)
+  - Check for both "suspended" and "waiting" status as valid paused states
+---
+
+## 2026-01-22 - US-020
+Thread: https://ampcode.com/threads/T-019be532-c352-7049-8826-04df4c022049
+- Created GET /api/v2/tools endpoint in src/routes/v2/tools.ts
+- Returns list of available tools with name, description, and parameters schema
+- Uses client.tools.list() from desiAgent library to retrieve tool definitions
+- Requires valid API key authentication via authenticate middleware
+- Files changed: src/routes/v2/tools.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - client.tools.list() returns ToolDefinition[] with OpenAI function format (type: 'function')
+  - Extract name, description, parameters from tool.function property
+  - Tools are registered at client initialization via ToolRegistry
+---
+
+## 2026-01-22 - US-021
+Thread: https://ampcode.com/threads/T-019be540-8a1e-7472-8ce7-398a38dfaa26
+- Created billing schema at src/db/billing-schema.ts
+- UsageRecord table: id, tenantId, resourceType, quantity, unitCost, metadata (JSON), timestamp
+- Invoice table: id, tenantId, periodStart, periodEnd, lineItems (JSON), subtotal, total, status, createdAt
+- Added LineItem and UsageMetadata helper interfaces for typed JSON parsing
+- initializeBillingSchema() adds tables to admin database with proper indexes
+- Files changed: src/db/billing-schema.ts (new)
+- **Learnings for future iterations:**
+  - Billing tables are in the admin DB (not tenant DBs) since they need cross-tenant reporting
+  - Use REAL type for monetary values (quantity, unitCost, subtotal, total) in SQLite
+  - Invoice status uses "draft" | "pending" | "paid" | "cancelled" states
+---
+
+## 2026-01-22 - US-022
+Thread: https://ampcode.com/threads/T-019be541-8169-768e-858e-aa044afb7f4b
+- Created billing service at src/services/billing.ts
+- Implemented trackUsage(tenantId, resourceType, quantity, unitCost, metadata) to record usage
+- Implemented getUsage(tenantId, dateRange?) to retrieve usage records with optional date filtering
+- Added trackExecutionUsage() helper for tracking tokens and compute time per execution
+- Added getUsageSummary() for aggregated usage by resource type
+- Files changed: src/services/billing.ts (new)
+- **Learnings for future iterations:**
+  - Billing service uses getAdminDatabase() and initializes billing schema on each call
+  - trackExecutionUsage creates two records: one for tokens, one for compute_time
+  - DateRange interface with start/end strings for date filtering
+  - Usage queries use timestamp column for date range filtering
+---
+
+## 2026-01-22 - US-023
+Thread: https://ampcode.com/threads/T-019be542-8703-755f-85ee-7495c5812397
+- Created costs endpoints at src/routes/v2/costs.ts
+- GET /api/v2/costs/executions/:id returns execution cost breakdown with usage and costs
+- GET /api/v2/costs/dags/:id returns DAG cost breakdown with all execution summaries
+- GET /api/v2/costs/summary returns tenant cost summary with optional date filters
+- Cost data includes token counts, model used, calculated token and compute costs
+- Registered costs routes in app.ts
+- Files changed: src/routes/v2/costs.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - execution.totalUsage has promptTokens/completionTokens (not input/output)
+  - DAG object has objective field (not dagTitle) for the main description
+  - Use Number() to convert unitCost before arithmetic to avoid string concatenation issues
+  - Filter usage records by parsing metadata JSON to match executionId/dagId
+---
+
+## 2026-01-22 - US-024
+Thread: https://ampcode.com/threads/T-019be544-b36f-75df-b864-e1e1db425ad5
+- Created billing usage endpoints at src/routes/v2/billing.ts
+- GET /api/v2/billing/usage returns current period usage (month to date)
+- GET /api/v2/billing/usage/history returns historical usage with date filters and pagination
+- Usage endpoint includes token/compute totals, costs, unique executions/DAGs count, and tenant quotas
+- History endpoint returns individual usage records with metadata, summary by resource type, and pagination
+- Registered billing routes in app.ts
+- Files changed: src/routes/v2/billing.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - Current period calculation: start of month to end of month using Date constructor
+  - Use Number() on totalCost values to ensure proper arithmetic
+  - Parse metadata JSON to extract executionId/dagId for unique counts using Set
+  - Pagination: slice records in-memory, include hasMore flag for client
+---
+
+## 2026-01-22 - US-025
+Thread: https://ampcode.com/threads/T-019be545-fbb5-7023-a6f7-134180186e44
+- Added billing invoice endpoints to src/routes/v2/billing.ts
+- GET /api/v2/billing/invoices lists invoices with pagination and optional status filter
+- GET /api/v2/billing/invoices/:id returns detailed invoice with line items
+- Added getInvoices() and getInvoiceById() helper functions for database queries
+- Invoice list returns summary (id, period, subtotal, total, status, createdAt)
+- Invoice detail returns full data including parsed lineItems array
+- Files changed: src/routes/v2/billing.ts
+- **Learnings for future iterations:**
+  - Invoice lineItems are stored as JSON string, parse with JSON.parse to LineItem[]
+  - List endpoint returns summary without lineItems, detail endpoint returns full lineItems
+  - Use initializeAdminDatabase() before initializeBillingSchema() to ensure tables exist
+---
+
+## 2026-01-22 - US-026
+Thread: https://ampcode.com/threads/T-019be547-90ee-74cd-8b98-78e7b347c2e3
+- Created admin service at src/services/admin.ts
+- Implemented createTenant(input) to create tenant with database initialization
+- Implemented getTenant(id) and getTenantBySlug(slug) for tenant retrieval
+- Implemented updateTenant(id, updates) for updating status, plan, quotas, name
+- Implemented listTenants(filters) with pagination (limit, offset) and filtering (status, plan)
+- Added suspendTenant() and activateTenant() helper functions
+- Plan-based default quotas (free, pro, enterprise tiers)
+- Files changed: src/services/admin.ts (new)
+- **Learnings for future iterations:**
+  - createTenant initializes tenant DB with user and api_key schemas automatically
+  - Use crypto.randomUUID() for tenant IDs
+  - PLAN_QUOTAS map provides default quotas based on plan tier
+  - Enterprise plan uses -1 for unlimited quotas
+---
+
+## 2026-01-22 - US-027
+Thread: https://ampcode.com/threads/T-019be548-f0e6-737a-9f1b-0afc9f1e99f3
+- Created admin tenant endpoints at src/routes/v2/admin.ts
+- GET /api/v2/admin/tenants lists all tenants with pagination and filters (status, plan)
+- POST /api/v2/admin/tenants creates new tenant with validation (slug must be lowercase alphanumeric with dashes)
+- GET /api/v2/admin/tenants/:id gets tenant details with parsed quotas
+- PATCH /api/v2/admin/tenants/:id updates tenant (name, status, plan, quotas)
+- DELETE /api/v2/admin/tenants/:id suspends tenant by default, or deletes with ?action=delete query param
+- Implemented ensureSuperAdmin middleware to check for "super_admin" scope in API key
+- Registered admin routes in app.ts
+- Files changed: src/routes/v2/admin.ts (new), src/app.ts
+- **Learnings for future iterations:**
+  - super_admin scope already exists in ApiKeyScope type, use it for admin-level operations
+  - Use ensureSuperAdmin as preHandler after authenticate to check API key scopes
+  - DELETE endpoint supports both suspend (default) and delete (via ?action=delete) behaviors
+  - Parse tenant.quotas from JSON string when returning in responses
+---
+
+## 2026-01-22 - US-028
+Thread: https://ampcode.com/threads/T-019be54a-a61b-77d8-8313-94e2d6f2aede
+- Implemented route-specific rate limits using @fastify/rate-limit config option
+- Auth endpoints (/auth/*): 10 requests per minute
+- Execution create endpoints (/dags/:id/execute, /dags/execute-definition, /dags/experiments): 20 requests per minute
+- Rate limits applied via spread of config object in route options
+- Files changed: src/routes/v2/auth.ts, src/routes/v2/dags.ts
+- **Learnings for future iterations:**
+  - Use `config: { rateLimit: { max, timeWindow } }` in route options to override global rate limit
+  - Create a const object with the config and spread it into route options for reusability
+  - Route-specific rate limits inherit keyGenerator from global config
+---

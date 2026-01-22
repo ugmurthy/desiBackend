@@ -1,437 +1,173 @@
 {
-  "project": "desiAgent Backend API",
-  "branchName": "ralph/desiagent-backend-api",
-  "description": "RESTful backend service exposing desiAgent library functionality via HTTP APIs with multi-tenant isolation, API key authentication, and billing",
+  "project": "desiAgent Backend",
+  "branchName": "ralph/bootstrap-backend",
+  "description": "Bootstrap system for initializing the desiAgent backend with super admin, API key, database schemas, and seed agents from CSV",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Project Setup & Configuration",
-      "description": "As a developer, I want the project scaffolded with Fastify and Bun so that I can start building endpoints.",
+      "title": "Bootstrap CLI Command",
+      "description": "As a developer, I want a CLI command to bootstrap the admin so that I can initialize the system manually.",
       "acceptanceCriteria": [
-        "Initialize Bun project with bun init",
-        "Install dependencies: fastify, @fastify/cors, @fastify/env, @fastify/multipart, @fastify/rate-limit, bcrypt",
-        "Create project structure: src/, routes/, services/, plugins/, middleware/, db/, types/, utils/",
-        "Configure environment schema in src/config/env.ts",
-        "Basic health check endpoint at GET /api/v2/health returns { status: 'ok' }",
+        "Create scripts/bootstrap.ts executable via bun run bootstrap-admin",
+        "Add script to package.json: bootstrap-admin: bun run scripts/bootstrap.ts",
+        "Command accepts optional --force flag to re-run even if admin exists",
+        "Command exits with code 0 on success, 1 on failure",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Global Error Handler Plugin",
-      "description": "As a developer, I want consistent error responses so that I can handle failures appropriately.",
+      "title": "Admin Database Schema Extensions",
+      "description": "As the system, I need super_admins and admin_api_keys tables for admin authentication.",
       "acceptanceCriteria": [
-        "Create src/plugins/error-handler.ts with global error handler",
-        "Standard error format: { statusCode, error, message, details }",
-        "Validation errors return 400 with field-level details",
-        "Not found errors return 404",
-        "Unhandled errors return 500 without leaking internals",
+        "Add super_admins table to src/db/admin-schema.ts (id, email, name, passwordHash, createdAt, updatedAt)",
+        "Add admin_api_keys table (id, adminId, keyHash, keyPrefix, scopes JSON, expiresAt, createdAt, revokedAt)",
+        "Add agents table for seeding (id, name, version, promptTemplate, provider, model, active, metadata, createdAt, updatedAt)",
+        "Agents table has UNIQUE constraint on (name, version)",
+        "Tables created in ~/.desiAgent/admin.db",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Admin Database Schema",
-      "description": "As the system, I need a central admin database for tenant management.",
+      "title": "Super Admin Creation",
+      "description": "As a developer, I want the bootstrap to create a super admin so that I can manage tenants.",
       "acceptanceCriteria": [
-        "Create src/db/admin-schema.ts with Tenant schema",
-        "Tenant fields: id (UUID), name, slug, status, plan, quotas (JSON), createdAt, updatedAt",
-        "Admin database created at ~/.desiAgent/admin.db",
-        "Database initialization function creates tables if not exist",
+        "Create super admin with email from ADMIN_EMAIL env var (default: admin@desiagent.local)",
+        "Create super admin with name from ADMIN_NAME env var (default: Super Admin)",
+        "If admin already exists, skip creation unless --force flag provided",
+        "Store admin record in super_admins table",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Per-Tenant User Schema",
-      "description": "As the system, I need user management within each tenant database.",
+      "title": "Admin API Key Generation",
+      "description": "As a developer, I want an API key generated for the admin so that I can authenticate programmatically.",
       "acceptanceCriteria": [
-        "Create src/db/user-schema.ts with User schema",
-        "User fields: id (UUID), email, name, role (admin|member|viewer), createdAt, updatedAt",
-        "Schema applied to tenant databases at ~/.desiAgent/tenants/{tenant_id}/agent.db",
+        "Generate API key in format: desi_sk_admin_{random32chars}",
+        "Store bcrypt hash of key in admin_api_keys table",
+        "Store key prefix (desi_sk_admin_xxxx) for identification",
+        "Set scopes to [admin, read, write, execute]",
+        "Set expiresAt to null (admin keys never expire)",
+        "Print full key to console with warning: Save this key - it won't be shown again",
+        "Save full key to ~/.desiAgent/admin-key.txt with 600 permissions",
+        "If key file exists and --force not set, warn and skip",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "API Key Schema and Service",
-      "description": "As the system, I need to store and validate API keys for authentication.",
+      "title": "User Table Schema",
+      "description": "As the system, I need user table schema defined for tenant databases.",
       "acceptanceCriteria": [
-        "Create src/db/api-key-schema.ts with ApiKey table in tenant DB",
-        "ApiKey fields: id, userId, name, keyPrefix (first 8 chars), keyHash (bcrypt), scopes (JSON array), expiresAt, createdAt",
-        "Create src/services/api-key.ts with create, validate, list, revoke functions",
-        "API key format: desi_sk_{env}_{random} (e.g., desi_sk_live_abc123...)",
-        "Keys stored as bcrypt hashes, only prefix returned after creation",
+        "Define user schema in src/db/user-schema.ts for tenant databases",
+        "User fields: id, email, name, role (admin | member | viewer), tenantId, apiKeyId, createdAt, updatedAt",
+        "Users belong to exactly one tenant (single-tenant membership)",
+        "Schema uses Bun's SQLite module",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Tenant Client Service",
-      "description": "As the system, I need to manage desiAgent client instances per tenant.",
+      "title": "Example Agents CSV File",
+      "description": "As a developer, I want an example CSV file documenting the agent seed format.",
       "acceptanceCriteria": [
-        "Create src/services/tenant-client.ts",
-        "TenantClientService manages desiAgent client instances keyed by tenant ID",
-        "getClient(tenantId) returns or creates desiAgent client for tenant database",
-        "Tenant databases at ~/.desiAgent/tenants/{tenant_id}/agent.db",
+        "Create scripts/example-agents.csv with sample agent data",
+        "CSV columns: id (optional), name (required), version (required), promptTemplate (required), provider (optional), model (optional), active (optional), metadata (optional)",
+        "Include 2-3 example agents with different configurations",
+        "Include comment or documentation about the expected file location ~/.desiAgent/seed/agents.csv",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Auth Middleware",
-      "description": "As the system, I need to authenticate requests via API keys.",
+      "title": "Agents Seeding from CSV",
+      "description": "As the system, I want to seed agents from CSV so that initial agents are available.",
       "acceptanceCriteria": [
-        "Create src/middleware/authenticate.ts",
-        "Validates Authorization: Bearer desi_sk_... header",
-        "Extracts tenant and user from valid API key",
-        "Invalid/expired keys return 401 with clear error message",
-        "Missing auth returns 401 Unauthorized",
+        "Read ~/.desiAgent/seed/agents.csv if it exists",
+        "Parse CSV with proper handling of quoted fields and escaped characters",
+        "Skip header row",
+        "Generate UUID for id if not provided",
+        "Validate required fields (name, version, promptTemplate)",
+        "Insert agents into admin.db agents table",
+        "Skip agents that already exist (by name+version unique constraint)",
+        "Log count of inserted vs skipped agents",
+        "Handle missing CSV file gracefully (log warning, continue)",
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Tenant Context Plugin",
-      "description": "As the system, I need tenant context injected into each request.",
+      "title": "Default Tenant Creation",
+      "description": "As a developer, I want a default tenant created during bootstrap for testing.",
       "acceptanceCriteria": [
-        "Create src/plugins/tenant.ts",
-        "Plugin decorates request with tenant, user, and desiAgent client",
-        "Extend Fastify types in src/types/fastify.d.ts",
+        "Create tenant with name default and slug default",
+        "Set status to active and plan to free",
+        "Create tenant database at ~/.desiAgent/tenants/default/agent.db",
+        "Initialize tenant DB with user table schema",
+        "Skip if default tenant already exists unless --force",
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Rate Limiting Plugin",
-      "description": "As the system, I need to enforce rate limits to protect the API.",
+      "title": "Bootstrap Service Logic",
+      "description": "As the system, I need a bootstrap service that orchestrates all initialization steps.",
       "acceptanceCriteria": [
-        "Configure @fastify/rate-limit in src/app.ts",
-        "Default rate limit: 100 requests per minute",
-        "Rate limit headers included: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
-        "429 response with error message when exceeded",
-        "Limits applied per API key",
+        "Create src/services/bootstrap.ts with runBootstrap(options) function",
+        "Options include force boolean flag",
+        "Bootstrap creates ~/.desiAgent/ directory structure if missing",
+        "Bootstrap initializes admin.db with all schemas",
+        "Bootstrap creates super admin and API key",
+        "Bootstrap seeds agents from CSV",
+        "Bootstrap creates default tenant",
+        "Returns summary of what was created vs skipped",
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Health Check Endpoints",
-      "description": "As an operator, I want health check endpoints for monitoring.",
+      "title": "Bootstrap Idempotency",
+      "description": "As a developer, I want bootstrap to be safe to re-run so that I don't corrupt data.",
       "acceptanceCriteria": [
-        "Create src/routes/v2/health.ts",
-        "GET /api/v2/health returns liveness check with status, version, uptime",
-        "GET /api/v2/health/ready returns readiness check with DB connectivity status",
-        "Health endpoints exempt from authentication",
+        "Running bootstrap twice without --force preserves existing data",
+        "Existing admin not overwritten",
+        "Existing API keys not regenerated unless --force",
+        "Existing agents not duplicated (unique constraint on name+version)",
+        "--force flag regenerates API key and updates admin",
+        "Clear console output indicating what was created vs skipped",
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-011",
-      "title": "Auth Endpoints - Get Current User",
-      "description": "As a user, I want to get my current user info from my API key.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/auth.ts",
-        "GET /api/v2/auth/me returns current user info from API key",
-        "Response includes id, email, name, role, tenant info",
-        "Requires valid API key authentication",
-        "Typecheck passes"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Auth Endpoints - API Key Management",
-      "description": "As a user, I want to manage my API keys.",
-      "acceptanceCriteria": [
-        "GET /api/v2/auth/api-keys lists user's API keys (prefix only, not full key)",
-        "POST /api/v2/auth/api-keys creates new API key, returns full key once only",
-        "DELETE /api/v2/auth/api-keys/:id revokes API key",
-        "All endpoints require valid API key authentication",
-        "Typecheck passes"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-013",
-      "title": "User Management Endpoints",
-      "description": "As a tenant admin, I want to manage users in my tenant.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/users.ts",
-        "GET /api/v2/users lists tenant users (admin only)",
-        "GET /api/v2/users/:id gets user by ID",
-        "PATCH /api/v2/users/:id updates user role (admin only)",
-        "DELETE /api/v2/users/:id removes user from tenant (admin only)",
-        "POST /api/v2/users/invite invites user to tenant (admin only)",
-        "Role-based access control enforced",
-        "Typecheck passes"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-014",
-      "title": "Agents CRUD Endpoints",
-      "description": "As a user, I want to create, read, update, and delete agents.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/agents.ts",
-        "POST /api/v2/agents creates agent with validation",
-        "GET /api/v2/agents lists agents with filters (status, name) and pagination (limit, offset)",
-        "GET /api/v2/agents/:id gets agent by ID",
-        "PATCH /api/v2/agents/:id updates agent",
-        "DELETE /api/v2/agents/:id deletes agent",
-        "All operations scoped to authenticated tenant",
-        "Typecheck passes"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-015",
-      "title": "Agents Action Endpoints",
-      "description": "As a user, I want to activate agents and resolve by name.",
-      "acceptanceCriteria": [
-        "POST /api/v2/agents/:id/activate activates agent",
-        "GET /api/v2/agents/resolve/:name resolves agent by name",
-        "Operations scoped to authenticated tenant",
-        "Typecheck passes"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-016",
-      "title": "DAGs CRUD Endpoints",
-      "description": "As a user, I want to create, read, update, and delete DAGs.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/dags.ts",
-        "POST /api/v2/dags creates DAG from goal",
-        "GET /api/v2/dags lists DAGs with filters and pagination",
-        "GET /api/v2/dags/scheduled lists scheduled DAGs",
-        "GET /api/v2/dags/:id gets DAG by ID",
-        "PATCH /api/v2/dags/:id updates DAG",
-        "DELETE /api/v2/dags/:id safe deletes DAG",
-        "Typecheck passes"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-017",
-      "title": "DAGs Execution Endpoints",
-      "description": "As a user, I want to execute DAGs and run experiments.",
-      "acceptanceCriteria": [
-        "POST /api/v2/dags/:id/execute executes DAG by ID",
-        "POST /api/v2/dags/execute-definition executes DAG definition directly",
-        "POST /api/v2/dags/experiments runs experiments",
-        "Operations scoped to authenticated tenant",
-        "Typecheck passes"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-018",
-      "title": "Executions CRUD Endpoints",
-      "description": "As a user, I want to list and view execution details.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/executions.ts",
-        "GET /api/v2/executions lists executions with filters (status, dagId, date range) and pagination",
-        "GET /api/v2/executions/:id gets execution by ID",
-        "GET /api/v2/executions/:id/details gets execution with sub-steps",
-        "GET /api/v2/executions/:id/sub-steps gets sub-steps only",
-        "DELETE /api/v2/executions/:id deletes execution",
-        "Typecheck passes"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-019",
-      "title": "Executions Resume Endpoint",
-      "description": "As a user, I want to resume paused executions.",
-      "acceptanceCriteria": [
-        "POST /api/v2/executions/:id/resume resumes paused execution",
-        "Returns error if execution is not in paused state",
-        "Typecheck passes"
-      ],
-      "priority": 19,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-020",
-      "title": "Tools Endpoint",
-      "description": "As a user, I want to list available tools.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/tools.ts",
-        "GET /api/v2/tools returns list of available tools with metadata",
-        "Response includes tool name, description, parameters schema",
-        "Typecheck passes"
-      ],
-      "priority": 20,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-021",
-      "title": "Billing Schema",
-      "description": "As the system, I need to store usage and invoice data.",
-      "acceptanceCriteria": [
-        "Create src/db/billing-schema.ts",
-        "UsageRecord table: id, tenantId, resourceType, quantity, unitCost, metadata (JSON), timestamp",
-        "Invoice table: id, tenantId, periodStart, periodEnd, lineItems (JSON), subtotal, total, status, createdAt",
-        "Schema applied to admin database",
-        "Typecheck passes"
-      ],
-      "priority": 21,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-022",
-      "title": "Billing Service",
-      "description": "As the system, I need to track usage per execution.",
-      "acceptanceCriteria": [
-        "Create src/services/billing.ts",
-        "trackUsage(tenantId, resourceType, quantity, unitCost, metadata) records usage",
-        "getUsage(tenantId, dateRange) returns usage records",
-        "Usage tracked per execution (tokens, compute time)",
-        "Typecheck passes"
-      ],
-      "priority": 22,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-023",
-      "title": "Costs Endpoints",
-      "description": "As a user, I want to view cost breakdowns.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/costs.ts",
-        "GET /api/v2/costs/executions/:id returns execution cost breakdown",
-        "GET /api/v2/costs/dags/:id returns DAG cost breakdown",
-        "GET /api/v2/costs/summary returns cost summary with date filters",
-        "Cost data includes token counts, model used, calculated cost",
-        "Typecheck passes"
-      ],
-      "priority": 23,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-024",
-      "title": "Billing Usage Endpoints",
-      "description": "As a user, I want to view my usage data.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/billing.ts",
-        "GET /api/v2/billing/usage returns current period usage",
-        "GET /api/v2/billing/usage/history returns historical usage with date filters",
-        "Typecheck passes"
-      ],
-      "priority": 24,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-025",
-      "title": "Billing Invoice Endpoints",
-      "description": "As a user, I want to view my invoices.",
-      "acceptanceCriteria": [
-        "GET /api/v2/billing/invoices lists invoices with pagination",
-        "GET /api/v2/billing/invoices/:id returns invoice details",
-        "Typecheck passes"
-      ],
-      "priority": 25,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-026",
-      "title": "Admin Service",
-      "description": "As the system, I need tenant management functions.",
-      "acceptanceCriteria": [
-        "Create src/services/admin.ts",
-        "createTenant(name, slug, plan) creates tenant and database",
-        "getTenant(id) returns tenant details",
-        "updateTenant(id, updates) updates tenant status, plan, quotas",
-        "listTenants(filters) returns paginated tenant list",
-        "Typecheck passes"
-      ],
-      "priority": 26,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-027",
-      "title": "Admin Tenant Endpoints",
-      "description": "As a super admin, I want to manage tenants.",
-      "acceptanceCriteria": [
-        "Create src/routes/v2/admin.ts",
-        "GET /api/v2/admin/tenants lists all tenants (super admin only)",
-        "POST /api/v2/admin/tenants creates new tenant",
-        "GET /api/v2/admin/tenants/:id gets tenant details",
-        "PATCH /api/v2/admin/tenants/:id updates tenant (status, plan, quotas)",
-        "DELETE /api/v2/admin/tenants/:id suspends/deletes tenant",
-        "Super admin authentication via special API key scope",
-        "Typecheck passes"
-      ],
-      "priority": 27,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-028",
-      "title": "Route-Specific Rate Limits",
-      "description": "As the system, I need different rate limits for different endpoints.",
-      "acceptanceCriteria": [
-        "Auth endpoints: 10 requests per minute",
-        "Execution create endpoints: 20 requests per minute",
-        "Rate limits applied via route config option",
-        "Typecheck passes"
-      ],
-      "priority": 28,
-      "passes": true,
+      "passes": false,
       "notes": ""
     }
   ]
