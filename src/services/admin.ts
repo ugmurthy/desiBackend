@@ -50,7 +50,7 @@ const PLAN_QUOTAS: Record<string, TenantQuotas> = {
   },
 };
 
-export function createTenant(input: CreateTenantInput): Tenant {
+export async function createTenant(input: CreateTenantInput): Promise<Tenant> {
   const db = getAdminDatabase();
   const id = crypto.randomUUID();
   const plan = input.plan || "free";
@@ -64,7 +64,7 @@ export function createTenant(input: CreateTenantInput): Tenant {
   stmt.run(id, input.name, input.slug, plan, quotas, now, now);
 
   // Initialize tenant database with user and api_key schemas
-  const tenantDb = initializeTenantUserSchema(id);
+  const tenantDb = await initializeTenantUserSchema(id);
   initializeApiKeySchema(tenantDb);
   tenantDb.close();
 

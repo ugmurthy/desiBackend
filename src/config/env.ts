@@ -18,6 +18,26 @@ export const envSchema = {
       type: "string" as const,
       default: "info",
     },
+    LLM_PROVIDER: {
+      type: "string" as const,
+      default: "openai",
+    },
+    LLM_MODEL: {
+      type: "string" as const,
+      default: "gpt-4o-mini",
+    },
+    OPENAI_API_KEY: {
+      type: "string" as const,
+      default: "",
+    },
+    OPENROUTER_API_KEY: {
+      type: "string" as const,
+      default: "",
+    },
+    OLLAMA_BASE_URL: {
+      type: "string" as const,
+      default: "http://localhost:11434",
+    },
   },
 };
 
@@ -26,6 +46,11 @@ export type EnvConfig = {
   HOST: string;
   NODE_ENV: string;
   LOG_LEVEL: string;
+  LLM_PROVIDER: "openai" | "openrouter" | "ollama";
+  LLM_MODEL: string;
+  OPENAI_API_KEY: string;
+  OPENROUTER_API_KEY: string;
+  OLLAMA_BASE_URL: string;
 };
 
 declare module "fastify" {

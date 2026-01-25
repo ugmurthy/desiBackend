@@ -1,12 +1,14 @@
 import type { FastifyRequest, FastifyReply, preHandlerHookHandler } from "fastify";
 import type { Database } from "bun:sqlite";
 import { validateApiKey, type ApiKeyInfo } from "../services/api-key";
-import { getAdminDatabase, type Tenant } from "../db/admin-schema";
+import { getAdminDatabase, type Tenant, type SuperAdmin, type AdminApiKey } from "../db/admin-schema";
 import { getTenantDbPath } from "../db/user-schema";
 import { Database as SqliteDatabase } from "bun:sqlite";
 import type { User } from "../db/user-schema";
+import { verifyAdminApiKey } from "../services/admin-api-key";
 
 const KEY_PREFIX_LENGTH = 8;
+const ADMIN_KEY_PREFIX = "desi_sk_admin_";
 
 export interface AuthenticatedUser {
   id: string;
@@ -23,7 +25,15 @@ export interface AuthContext {
 }
 
 function extractKeyPrefix(fullKey: string): string {
-  return fullKey.slice(0, fullKey.indexOf("_", 10) + 1 + KEY_PREFIX_LENGTH);
+  // Format: desi_sk_{env}_{random} where env is "live" or "test"
+  // Find the underscore after the env segment (starting search at position 10)
+  const envUnderscorePos = fullKey.indexOf("_", 10);
+  if (envUnderscorePos === -1) {
+    // Fallback for legacy keys without env segment: "desi_sk_" + 8 chars
+    return fullKey.slice(0, 16);
+  }
+  // Include underscore + 8 random chars
+  return fullKey.slice(0, envUnderscorePos + 1 + KEY_PREFIX_LENGTH);
 }
 
 function getTenantByApiKeyPrefix(keyPrefix: string): Tenant | null {
@@ -185,3 +195,106 @@ export function ensureRole(...allowedRoles: AuthenticatedUser["role"][]): preHan
     }
   };
 }
+
+export interface AdminAuthContext {
+  admin: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  apiKey: {
+    id: string;
+    scopes: string[];
+  };
+}
+
+function getAdminById(adminId: string): SuperAdmin | null {
+  const db = getAdminDatabase();
+  const stmt = db.prepare(`SELECT * FROM super_admins WHERE id = ?`);
+  return stmt.get(adminId) as SuperAdmin | null;
+}
+
+export const authenticateAdmin: preHandlerHookHandler = async (
+  request: FastifyRequest,
+  reply: FastifyReply
+) => {
+  const authHeader = request.headers.authorization;
+
+  if (!authHeader) {
+    return reply.status(401).send({
+      statusCode: 401,
+      error: "Unauthorized",
+      message: "Missing Authorization header",
+    });
+  }
+
+  if (!authHeader.startsWith("Bearer ")) {
+    return reply.status(401).send({
+      statusCode: 401,
+      error: "Unauthorized",
+      message: "Invalid Authorization header format. Expected: Bearer <api_key>",
+    });
+  }
+
+  const apiKey = authHeader.slice(7).trim();
+
+  if (!apiKey.startsWith(ADMIN_KEY_PREFIX)) {
+    return reply.status(401).send({
+      statusCode: 401,
+      error: "Unauthorized",
+      message: "Invalid admin API key format",
+    });
+  }
+
+  const adminApiKey = await verifyAdminApiKey(apiKey);
+
+  if (!adminApiKey) {
+    return reply.status(401).send({
+      statusCode: 401,
+      error: "Unauthorized",
+      message: "Invalid or expired admin API key",
+    });
+  }
+
+  if (adminApiKey.revokedAt) {
+    return reply.status(401).send({
+      statusCode: 401,
+      error: "Unauthorized",
+      message: "Admin API key has been revoked",
+    });
+  }
+
+  if (adminApiKey.expiresAt && new Date(adminApiKey.expiresAt) < new Date()) {
+    return reply.status(401).send({
+      statusCode: 401,
+      error: "Unauthorized",
+      message: "Admin API key has expired",
+    });
+  }
+
+  const admin = getAdminById(adminApiKey.adminId);
+
+  if (!admin) {
+    return reply.status(401).send({
+      statusCode: 401,
+      error: "Unauthorized",
+      message: "Admin not found",
+    });
+  }
+
+  const scopes = JSON.parse(adminApiKey.scopes) as string[];
+
+  (request as FastifyRequest & { adminAuth: AdminAuthContext }).adminAuth = {
+    admin: {
+      id: admin.id,
+      email: admin.email,
+      name: admin.name,
+    },
+    apiKey: {
+      id: adminApiKey.id,
+      scopes,
+    },
+  };
+
+  return;
+};

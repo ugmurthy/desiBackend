@@ -14,6 +14,7 @@ import toolsRoutes from "./routes/v2/tools";
 import costsRoutes from "./routes/v2/costs";
 import billingRoutes from "./routes/v2/billing";
 import adminRoutes from "./routes/v2/admin";
+import { initializeTenantClientService } from "./services/tenant-client";
 
 export async function buildApp() {
   const app = Fastify({
@@ -62,6 +63,16 @@ export async function buildApp() {
   });
 
   await app.register(errorHandler);
+
+  initializeTenantClientService({
+    llmProvider: app.config.LLM_PROVIDER,
+    modelName: app.config.LLM_MODEL,
+    openaiApiKey: app.config.OPENAI_API_KEY || undefined,
+    openrouterApiKey: app.config.OPENROUTER_API_KEY || undefined,
+    ollamaBaseUrl: app.config.OLLAMA_BASE_URL || undefined,
+    logLevel: app.config.LOG_LEVEL as "debug" | "info" | "warn" | "error",
+  });
+  app.log.info(`TenantClientService initialized LOGLEVEL: ${app.config.LOG_LEVEL} : (provider: ${app.config.LLM_PROVIDER}, model: ${app.config.LLM_MODEL})`);
 
   await app.register(healthRoutes, { prefix: "/api/v2" });
   await app.register(authRoutes, { prefix: "/api/v2" });

@@ -1,7 +1,9 @@
 import { Database } from "bun:sqlite";
-import { join } from "path";
+import { join, dirname } from "path";
 import { homedir } from "os";
 import { mkdirSync, existsSync } from "fs";
+import { initDB } from "@ugm/desiagent";
+import { initializeApiKeySchema } from "./api-key-schema";
 
 export type UserRole = "admin" | "member" | "viewer";
 
@@ -41,14 +43,18 @@ export function initializeUserSchema(db: Database): void {
   `);
 }
 
-export function initializeTenantUserSchema(tenantId: string): Database {
-  const tenantDir = join(TENANT_DB_BASE, tenantId);
-  if (!existsSync(tenantDir)) {
-    mkdirSync(tenantDir, { recursive: true });
-  }
-
+export async function initializeTenantUserSchema(tenantId: string): Promise<Database> {
   const dbPath = getTenantDbPath(tenantId);
+  const dbDir = dirname(dbPath);
+  
+  if (!existsSync(dbDir)) {
+    mkdirSync(dbDir, { recursive: true });
+  }
+  
+  const result = await initDB(dbPath, { force: false });
+  console.log("Database initialization result:", JSON.stringify(result,null, 2));
   const db = new Database(dbPath);
   initializeUserSchema(db);
+  initializeApiKeySchema(db);
   return db;
 }

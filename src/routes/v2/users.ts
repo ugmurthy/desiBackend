@@ -55,13 +55,13 @@ function deleteUser(db: Database, userId: string): boolean {
   return result.changes > 0;
 }
 
-function createUser(db: Database, data: { email: string; name: string; role: UserRole }): User {
+function createUser(db: Database, data: { email: string; name: string; role: UserRole; tenantId: string }): User {
   const id = crypto.randomUUID();
   const stmt = db.prepare(`
-    INSERT INTO users (id, email, name, role)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO users (id, email, name, role, tenantId)
+    VALUES (?, ?, ?, ?, ?)
   `);
-  stmt.run(id, data.email, data.name, data.role);
+  stmt.run(id, data.email, data.name, data.role, data.tenantId);
   
   return getUserById(db, id)!;
 }
@@ -277,7 +277,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const user = createUser(auth.tenantDb, { email, name, role });
+      const user = createUser(auth.tenantDb, { email, name, role, tenantId: auth.tenant.id });
 
       return reply.status(201).send({
         id: user.id,

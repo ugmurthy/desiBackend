@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
-import { authenticate, type AuthContext } from "../../middleware/authenticate";
+import { authenticateAdmin, type AdminAuthContext } from "../../middleware/authenticate";
 import {
   createTenant,
   getTenant,
@@ -38,32 +38,34 @@ interface ListTenantsQuery {
   offset?: string;
 }
 
-function ensureSuperAdmin(request: FastifyRequest, reply: FastifyReply) {
-  const auth = (request as FastifyRequest & { auth: AuthContext }).auth;
+async function ensureAdminScope(request: FastifyRequest, reply: FastifyReply) {
+  const adminAuth = (request as FastifyRequest & { adminAuth: AdminAuthContext }).adminAuth;
 
-  if (!auth) {
+  if (!adminAuth) {
     return reply.status(401).send({
       statusCode: 401,
       error: "Unauthorized",
-      message: "Authentication required",
+      message: "Admin authentication required",
     });
   }
 
-  const scopes = auth.apiKey.scopes;
-  if (!scopes.includes("super_admin")) {
+  const scopes = adminAuth.apiKey.scopes;
+  if (!scopes.includes("admin")) {
     return reply.status(403).send({
       statusCode: 403,
       error: "Forbidden",
-      message: "This action requires super_admin scope",
+      message: "This action requires admin scope",
     });
   }
+
+  return;
 }
 
 const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: ListTenantsQuery }>(
     "/admin/tenants",
     {
-      preHandler: [authenticate, ensureSuperAdmin],
+      preHandler: [authenticateAdmin, ensureAdminScope],
       schema: {
         querystring: {
           type: "object",
@@ -109,7 +111,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: CreateTenantBody }>(
     "/admin/tenants",
     {
-      preHandler: [authenticate, ensureSuperAdmin],
+      preHandler: [authenticateAdmin, ensureAdminScope],
       schema: {
         body: {
           type: "object",
@@ -132,7 +134,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       };
 
       try {
-        const tenant = createTenant(input);
+        const tenant = await createTenant(input);
         return reply.status(201).send({
           id: tenant.id,
           name: tenant.name,
@@ -162,7 +164,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: TenantParams }>(
     "/admin/tenants/:id",
     {
-      preHandler: [authenticate, ensureSuperAdmin],
+      preHandler: [authenticateAdmin, ensureAdminScope],
     },
     async (request, reply) => {
       const { id } = request.params;
@@ -193,7 +195,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{ Params: TenantParams; Body: UpdateTenantBody }>(
     "/admin/tenants/:id",
     {
-      preHandler: [authenticate, ensureSuperAdmin],
+      preHandler: [authenticateAdmin, ensureAdminScope],
       schema: {
         body: {
           type: "object",
@@ -244,7 +246,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Params: TenantParams; Querystring: { action?: string } }>(
     "/admin/tenants/:id",
     {
-      preHandler: [authenticate, ensureSuperAdmin],
+      preHandler: [authenticateAdmin, ensureAdminScope],
       schema: {
         querystring: {
           type: "object",

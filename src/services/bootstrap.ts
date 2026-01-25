@@ -4,7 +4,7 @@ import { mkdirSync, existsSync } from "fs";
 import { initializeAdminDatabase } from "../db/admin-schema";
 import { createSuperAdmin } from "./super-admin";
 import { createAdminApiKey } from "./admin-api-key";
-import { seedAgentsFromCSV, ensureSeedDirectory } from "./agents-seed";
+import {  ensureSeedDirectory, seedAgentsFromJSON } from "./agents-seed";
 import { createDefaultTenant } from "./default-tenant";
 
 export interface BootstrapOptions {
@@ -65,11 +65,11 @@ export async function runBootstrap(
   console.log("🔑 Creating admin API key...");
   const apiKeyResult = await createAdminApiKey(adminResult.admin.id, { force });
 
-  console.log("\n🤖 Seeding agents...");
-  const agentsResult = seedAgentsFromCSV();
-
   console.log("\n🏢 Creating default tenant...");
-  const tenantResult = createDefaultTenant({ force });
+  const tenantResult = await createDefaultTenant({ force });
+
+  console.log("\n🤖 Seeding agents into default tenant...");
+  const agentsResult = seedAgentsFromJSON("default");
 
   const summary: BootstrapSummary = {
     adminCreated: adminResult.created,

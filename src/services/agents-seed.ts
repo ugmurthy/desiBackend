@@ -1,10 +1,12 @@
 import { readFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import { getAdminDatabase, type Agent } from "../db/admin-schema";
+import { Database } from "bun:sqlite";
+import { getTenantDbPath } from "../db/user-schema";
+import type { Agent } from "../db/agents-schema";
 
 const SEED_DIR = join(homedir(), ".desiAgent", "seed");
-const AGENTS_CSV_PATH = join(SEED_DIR, "agents.csv");
+const AGENTS_JSON_PATH = join(SEED_DIR, "agents.json");
 
 export interface SeedAgentsResult {
   inserted: number;
@@ -12,54 +14,15 @@ export interface SeedAgentsResult {
   errors: string[];
 }
 
-/**
- * Parse a CSV line handling quoted fields and escaped characters
- */
-function parseCSVLine(line: string): string[] {
-  const fields: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  let i = 0;
-
-  while (i < line.length) {
-    const char = line[i];
-
-    if (inQuotes) {
-      if (char === '"') {
-        // Check for escaped quote (doubled)
-        if (i + 1 < line.length && line[i + 1] === '"') {
-          current += '"';
-          i += 2;
-          continue;
-        }
-        // End of quoted field
-        inQuotes = false;
-        i++;
-        continue;
-      }
-      current += char;
-      i++;
-    } else {
-      if (char === '"') {
-        inQuotes = true;
-        i++;
-        continue;
-      }
-      if (char === ",") {
-        fields.push(current.trim());
-        current = "";
-        i++;
-        continue;
-      }
-      current += char;
-      i++;
-    }
-  }
-
-  // Add the last field
-  fields.push(current.trim());
-
-  return fields;
+interface SeedAgent {
+  id?: string;
+  name: string;
+  version: string;
+  prompt_template: string;
+  provider?: string | null;
+  model?: string | null;
+  active?: boolean | number;
+  metadata?: Record<string, unknown> | string | null;
 }
 
 /**
@@ -88,128 +51,186 @@ function generateUUID(): string {
 }
 
 /**
- * Seed agents from CSV file into admin database
+ * Check if agent is active
  */
-export function seedAgentsFromCSV(): SeedAgentsResult {
+function isActive(active: boolean | number | undefined): boolean {
+  if (active === undefined) return true;
+  if (typeof active === "boolean") return active;
+  if (typeof active === "number") return active !== 0;
+  return true;
+}
+
+/**
+ * Validate and parse an agent object from JSON
+ */
+function validateAgent(agent: unknown, index: number): { valid: SeedAgent; error: null } | { valid: null; error: string } {
+  if (typeof agent !== "object" || agent === null) {
+    return { valid: null, error: `Index ${index}: not a valid object` };
+  }
+
+  const obj = agent as Record<string, unknown>;
+
+  if (typeof obj.name !== "string" || !obj.name.trim()) {
+    return { valid: null, error: `Index ${index}: missing or invalid 'name'` };
+  }
+
+  if (typeof obj.version !== "string" || !obj.version.trim()) {
+    return { valid: null, error: `Index ${index}: missing or invalid 'version'` };
+  }
+
+  if (typeof obj.prompt_template !== "string" || !obj.prompt_template.trim()) {
+    return { valid: null, error: `Index ${index}: missing or invalid 'prompt_template'` };
+  }
+
+  let active: boolean | number | undefined;
+  if (typeof obj.active === "boolean" || typeof obj.active === "number") {
+    active = obj.active;
+  }
+
+  return {
+    valid: {
+      id: typeof obj.id === "string" ? obj.id : undefined,
+      name: obj.name,
+      version: obj.version,
+      prompt_template: obj.prompt_template,
+      provider: typeof obj.provider === "string" ? obj.provider : null,
+      model: typeof obj.model === "string" ? obj.model : null,
+      active,
+      metadata: obj.metadata as SeedAgent["metadata"],
+    },
+    error: null,
+  };
+}
+
+/**
+ * Seed agents from JSON file into a tenant database
+ * @param tenantId - The tenant ID to seed agents into (defaults to "default")
+ */
+export function seedAgentsFromJSON(tenantId: string = "default"): SeedAgentsResult {
   const result: SeedAgentsResult = {
     inserted: 0,
     skipped: 0,
     errors: [],
   };
 
-  // Check if CSV file exists
-  if (!existsSync(AGENTS_CSV_PATH)) {
-    console.log(`⚠️  No agents CSV found at ${AGENTS_CSV_PATH}`);
-    console.log("   To seed agents, create the file or copy scripts/example-agents.csv");
+  if (!existsSync(AGENTS_JSON_PATH)) {
+    console.log(`⚠️  No agents JSON found at ${AGENTS_JSON_PATH}`);
+    console.log("   To seed agents, create the file with a JSON array of agent objects");
     return result;
   }
 
-  console.log(`📄 Reading agents from ${AGENTS_CSV_PATH}`);
+  console.log(`📄 Reading agents from ${AGENTS_JSON_PATH}`);
 
   let content: string;
   try {
-    content = readFileSync(AGENTS_CSV_PATH, "utf-8");
+    content = readFileSync(AGENTS_JSON_PATH, "utf-8");
   } catch (error) {
-    const errorMsg = `Failed to read CSV file: ${error instanceof Error ? error.message : String(error)}`;
+    const errorMsg = `Failed to read JSON file: ${error instanceof Error ? error.message : String(error)}`;
     result.errors.push(errorMsg);
     console.error(`❌ ${errorMsg}`);
     return result;
   }
 
-  const lines = content.split("\n");
-  const db = getAdminDatabase();
+  let agents: unknown[];
+  try {
+    const parsed = JSON.parse(content);
+    if (!Array.isArray(parsed)) {
+      const errorMsg = "Seed file must contain a JSON array";
+      result.errors.push(errorMsg);
+      console.error(`❌ ${errorMsg}`);
+      return result;
+    }
+    agents = parsed;
+  } catch (error) {
+    const errorMsg = `Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`;
+    result.errors.push(errorMsg);
+    console.error(`❌ ${errorMsg}`);
+    return result;
+  }
+
+  console.log(`   Found ${agents.length} agent(s) in seed file`);
+  console.log(`   Seeding into tenant: ${tenantId}`);
+
+  const dbPath = getTenantDbPath(tenantId);
+  if (!existsSync(dbPath)) {
+    const errorMsg = `Tenant database not found at ${dbPath}. Ensure tenant is created first.`;
+    result.errors.push(errorMsg);
+    console.error(`❌ ${errorMsg}`);
+    return result;
+  }
+
+  const db = new Database(dbPath);
 
   const insertStmt = db.prepare(`
-    INSERT INTO agents (id, name, version, promptTemplate, provider, model, active, metadata, createdAt, updatedAt)
+    INSERT INTO agents (id, name, version, prompt_template, provider, model, active, metadata, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
   `);
 
-  let headerSkipped = false;
+  const checkStmt = db.prepare(`
+    SELECT id FROM agents WHERE name = ? AND version = ?
+  `);
 
-  for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-    const rawLine = lines[lineNum];
-    if (rawLine === undefined) continue;
-    const line = rawLine.trim();
-    
-    // Skip empty lines and comments
-    if (!line || line.startsWith("#")) {
+  for (let i = 0; i < agents.length; i++) {
+    const validation = validateAgent(agents[i], i);
+
+    if (!validation.valid) {
+      result.errors.push(validation.error);
+      console.error(`❌ ${validation.error}`);
       continue;
     }
 
-    // Skip header row (first non-comment, non-empty line)
-    if (!headerSkipped) {
-      headerSkipped = true;
+    const agent = validation.valid;
+
+    if (!isActive(agent.active)) {
+      result.skipped++;
+      console.log(`   ⏭️  Skipped inactive agent: ${agent.name}@${agent.version}`);
       continue;
     }
 
-    const fields = parseCSVLine(line);
-    
-    // Expected columns: id, name, version, promptTemplate, provider, model, active, metadata
-    if (fields.length < 4) {
-      const errorMsg = `Line ${lineNum + 1}: Insufficient fields (need at least name, version, promptTemplate)`;
-      result.errors.push(errorMsg);
-      console.error(`❌ ${errorMsg}`);
+    const existing = checkStmt.get(agent.name, agent.version) as { id: string } | null;
+    if (existing) {
+      result.skipped++;
+      console.log(`   ⏭️  Skipped existing agent: ${agent.name}@${agent.version}`);
       continue;
     }
 
-    const [idField, name, version, promptTemplate, provider, model, activeField, metadata] = fields;
-
-    // Validate required fields
-    if (!name) {
-      const errorMsg = `Line ${lineNum + 1}: Missing required field 'name'`;
-      result.errors.push(errorMsg);
-      console.error(`❌ ${errorMsg}`);
-      continue;
-    }
-
-    if (!version) {
-      const errorMsg = `Line ${lineNum + 1}: Missing required field 'version'`;
-      result.errors.push(errorMsg);
-      console.error(`❌ ${errorMsg}`);
-      continue;
-    }
-
-    if (!promptTemplate) {
-      const errorMsg = `Line ${lineNum + 1}: Missing required field 'promptTemplate'`;
-      result.errors.push(errorMsg);
-      console.error(`❌ ${errorMsg}`);
-      continue;
-    }
-
-    // Generate UUID if not provided
-    const id = idField || generateUUID();
-
-    // Parse active field (default to 1 if not provided)
-    const active = activeField === "" || activeField === undefined ? 1 : parseInt(activeField, 10) || 0;
+    const id = agent.id || generateUUID();
+    const metadataStr = agent.metadata
+      ? typeof agent.metadata === "string"
+        ? agent.metadata
+        : JSON.stringify(agent.metadata)
+      : null;
 
     try {
       insertStmt.run(
         id,
-        name,
-        version,
-        promptTemplate,
-        provider || null,
-        model || null,
-        active,
-        metadata || null
+        agent.name,
+        agent.version,
+        agent.prompt_template,
+        agent.provider ?? null,
+        agent.model ?? null,
+        1,
+        metadataStr
       );
       result.inserted++;
-      console.log(`   ✅ Inserted agent: ${name}@${version}`);
+      console.log(`   ✅ Inserted agent: ${agent.name}@${agent.version}`);
     } catch (error) {
-      if (error instanceof Error && error.message.includes("UNIQUE constraint failed")) {
-        result.skipped++;
-        console.log(`   ⏭️  Skipped existing agent: ${name}@${version}`);
-      } else {
-        const errorMsg = `Line ${lineNum + 1}: ${error instanceof Error ? error.message : String(error)}`;
-        result.errors.push(errorMsg);
-        console.error(`❌ ${errorMsg}`);
-      }
+      const errorMsg = `${agent.name}@${agent.version}: ${error instanceof Error ? error.message : String(error)}`;
+      result.errors.push(errorMsg);
+      console.error(`❌ ${errorMsg}`);
     }
   }
 
   console.log(`\n📊 Agents seeding summary: ${result.inserted} inserted, ${result.skipped} skipped, ${result.errors.length} errors`);
 
   return result;
+}
+
+/**
+ * @deprecated Use seedAgentsFromJSON instead. Kept for backward compatibility.
+ */
+export function seedAgentsFromCSV(tenantId: string = "default"): SeedAgentsResult {
+  return seedAgentsFromJSON(tenantId);
 }
 
 /**
@@ -222,8 +243,15 @@ export function ensureSeedDirectory(): void {
 }
 
 /**
- * Get path to the agents CSV file
+ * Get path to the agents JSON file
+ */
+export function getAgentsJsonPath(): string {
+  return AGENTS_JSON_PATH;
+}
+
+/**
+ * @deprecated Use getAgentsJsonPath instead
  */
 export function getAgentsCsvPath(): string {
-  return AGENTS_CSV_PATH;
+  return AGENTS_JSON_PATH;
 }

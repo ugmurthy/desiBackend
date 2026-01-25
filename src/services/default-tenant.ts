@@ -21,9 +21,9 @@ export function getDefaultTenant(): Tenant | null {
   return tenant ?? null;
 }
 
-export function createDefaultTenant(
+export async function createDefaultTenant(
   options: CreateDefaultTenantOptions = {}
-): CreateDefaultTenantResult {
+): Promise<CreateDefaultTenantResult> {
   const { force = false } = options;
   const db = getAdminDatabase();
 
@@ -43,7 +43,7 @@ export function createDefaultTenant(
     `);
     updateStmt.run("active", "free", DEFAULT_TENANT_SLUG);
 
-    initializeTenantUserSchema(DEFAULT_TENANT_ID);
+    await initializeTenantUserSchema(DEFAULT_TENANT_ID);
     console.log("✅ Default tenant updated and database re-initialized");
 
     const updatedTenant = getDefaultTenant()!;
@@ -67,7 +67,7 @@ export function createDefaultTenant(
     quotas
   );
 
-  initializeTenantUserSchema(DEFAULT_TENANT_ID);
+  await initializeTenantUserSchema(DEFAULT_TENANT_ID);
 
   console.log("✅ Default tenant created with database at ~/.desiAgent/tenants/default/agent.db");
 

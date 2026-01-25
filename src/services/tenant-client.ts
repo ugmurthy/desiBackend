@@ -39,6 +39,7 @@ class TenantClientService {
     };
 
     const client = await setupDesiAgent(config);
+    console.log(`[TenantClientService] DesiAgent version: ${client.version ?? "unknown"} initialized for tenant: ${tenantId}`);
     this.clients.set(tenantId, client);
 
     return client;

@@ -118,7 +118,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           scheduleActive,
           timezone,
         });
-
+        console.log(JSON.stringify(request,null,2), "Backend: Created DAG");
         if (result.status === "clarification_required") {
           return reply.status(202).send({
             status: "clarification_required",
