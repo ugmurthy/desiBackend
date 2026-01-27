@@ -2,6 +2,8 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyEnv from "@fastify/env";
 import rateLimit from "@fastify/rate-limit";
+import swagger from "@fastify/swagger";
+import scalarReference from "@scalar/fastify-api-reference";
 import { envSchema } from "./config/env";
 import errorHandler from "./plugins/error-handler";
 import healthRoutes from "./routes/v2/health";
@@ -63,6 +65,43 @@ export async function buildApp() {
   });
 
   await app.register(errorHandler);
+
+  await app.register(swagger, {
+    openapi: {
+      openapi: "3.0.3",
+      info: {
+        title: "desiBackend API",
+        description: "API for desiAgent backend services - multi-tenant agent orchestration platform",
+        version: "2.0.0",
+      },
+      servers: [
+        {
+          url: "http://localhost:3000",
+          description: "Development server",
+        },
+      ],
+      tags: [
+        { name: "Health", description: "Health check endpoints" },
+        { name: "Authentication", description: "Authentication and API key management" },
+        { name: "Users", description: "User management endpoints" },
+        { name: "Agents", description: "Agent configuration and management" },
+        { name: "DAGs", description: "Directed Acyclic Graph management" },
+        { name: "Executions", description: "Agent execution management" },
+        { name: "Tools", description: "Tool management endpoints" },
+        { name: "Costs", description: "Cost tracking endpoints" },
+        { name: "Billing", description: "Billing and usage endpoints" },
+        { name: "Admin", description: "Administrative endpoints" },
+      ],
+    },
+  });
+
+  await app.register(scalarReference, {
+    routePrefix: "/api/v2/docs",
+    openApiDocumentEndpoints: {
+      json: "/json",
+      yaml: "/yaml",
+    },
+  });
 
   initializeTenantClientService({
     llmProvider: app.config.LLM_PROVIDER,
