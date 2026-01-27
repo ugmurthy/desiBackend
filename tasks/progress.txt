@@ -131,3 +131,17 @@ Thread: https://ampcode.com/threads/T-019be5dd-d144-752e-b7b3-0d2ab8fb777b
   - Copy scripts/example-agents.csv to ~/.desiAgent/seed/agents.csv to test agent seeding
 ---
 
+
+## 2026-01-27 - US-001
+Thread: https://ampcode.com/threads/T-019bff6a-2bf1-70dc-919e-dfc3a7039f20
+- Installed @fastify/swagger and @scalar/fastify-api-reference packages
+- Configured Swagger plugin with OpenAPI 3.0.3 spec in src/app.ts
+- Configured Scalar UI at /api/v2/docs with JSON endpoint at /api/v2/docs/json
+- Added API info (title: desiBackend API, version: 2.0.0, description)
+- Defined all route tags (Health, Authentication, Users, Agents, DAGs, Executions, Tools, Costs, Billing, Admin)
+- Files changed: package.json, bun.lock, src/app.ts
+- **Learnings for future iterations:**
+  - Scalar automatically gets OpenAPI spec from @fastify/swagger when registered
+  - Use `openApiDocumentEndpoints` to customize where JSON/YAML are served (defaults to /openapi.json, /openapi.yaml)
+  - Pre-existing typecheck errors in scripts/create-api-key.ts are unrelated to swagger changes
+---

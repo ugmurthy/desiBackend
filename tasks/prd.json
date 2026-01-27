@@ -1,17 +1,20 @@
 {
-  "project": "desiAgent Backend",
-  "branchName": "ralph/bootstrap-backend",
-  "description": "Bootstrap system for initializing the desiAgent backend with super admin, API key, database schemas, and seed agents from CSV",
+  "project": "desiBackend",
+  "branchName": "ralph/openapi-swagger-docs",
+  "description": "OpenAPI 3.0 specification generation and interactive API documentation with Scalar UI",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Bootstrap CLI Command",
-      "description": "As a developer, I want a CLI command to bootstrap the admin so that I can initialize the system manually.",
+      "title": "Install and configure OpenAPI documentation plugins",
+      "description": "As a developer, I need Fastify configured with Swagger and Scalar so the API has auto-generated OpenAPI specs and interactive documentation.",
       "acceptanceCriteria": [
-        "Create scripts/bootstrap.ts executable via bun run bootstrap-admin",
-        "Add script to package.json: bootstrap-admin: bun run scripts/bootstrap.ts",
-        "Command accepts optional --force flag to re-run even if admin exists",
-        "Command exits with code 0 on success, 1 on failure",
+        "@fastify/swagger package installed",
+        "@scalar/fastify-api-reference package installed",
+        "Swagger plugin registered in app with OpenAPI 3.0 configuration",
+        "API info (title, version, description) configured",
+        "Scalar UI served at /api/v2/docs",
+        "OpenAPI JSON available at /api/v2/docs/json",
+        "UI renders correctly with all endpoints visible",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -20,154 +23,56 @@
     },
     {
       "id": "US-002",
-      "title": "Admin Database Schema Extensions",
-      "description": "As the system, I need super_admins and admin_api_keys tables for admin authentication.",
+      "title": "Add OpenAPI schemas to all route modules",
+      "description": "As a developer, I want all API endpoints documented with request/response schemas and example values so consumers understand how to use each endpoint.",
       "acceptanceCriteria": [
-        "Add super_admins table to src/db/admin-schema.ts (id, email, name, passwordHash, createdAt, updatedAt)",
-        "Add admin_api_keys table (id, adminId, keyHash, keyPrefix, scopes JSON, expiresAt, createdAt, revokedAt)",
-        "Add agents table for seeding (id, name, version, promptTemplate, provider, model, active, metadata, createdAt, updatedAt)",
-        "Agents table has UNIQUE constraint on (name, version)",
-        "Tables created in ~/.desiAgent/admin.db",
+        "All routes in src/routes/v2/auth.ts have OpenAPI schema definitions, tagged 'Authentication'",
+        "All routes in src/routes/v2/users.ts have OpenAPI schema definitions, tagged 'Users'",
+        "All routes in src/routes/v2/agents.ts have OpenAPI schema definitions, tagged 'Agents'",
+        "All routes in src/routes/v2/executions.ts have OpenAPI schema definitions, tagged 'Executions'",
+        "All routes in src/routes/v2/dags.ts have OpenAPI schema definitions, tagged 'DAGs'",
+        "All routes in src/routes/v2/tools.ts have OpenAPI schema definitions, tagged 'Tools'",
+        "All routes in src/routes/v2/billing.ts have OpenAPI schema definitions, tagged 'Billing'",
+        "All routes in src/routes/v2/costs.ts have OpenAPI schema definitions, tagged 'Costs'",
+        "All routes in src/routes/v2/admin.ts have OpenAPI schema definitions, tagged 'Admin'",
+        "All routes in src/routes/v2/health.ts have OpenAPI schema definitions, tagged 'Health'",
+        "Request body schemas defined for all POST/PUT/PATCH endpoints",
+        "Response schemas defined with proper status codes (200, 400, 401, 404, 500, etc.)",
+        "Example values included in all request/response schemas",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Super Admin Creation",
-      "description": "As a developer, I want the bootstrap to create a super admin so that I can manage tenants.",
+      "title": "Add security schemes for authentication",
+      "description": "As a developer, I want the OpenAPI spec to document authentication requirements so consumers know how to authenticate.",
       "acceptanceCriteria": [
-        "Create super admin with email from ADMIN_EMAIL env var (default: admin@desiagent.local)",
-        "Create super admin with name from ADMIN_NAME env var (default: Super Admin)",
-        "If admin already exists, skip creation unless --force flag provided",
-        "Store admin record in super_admins table",
+        "Bearer token security scheme defined in OpenAPI config",
+        "Protected routes marked with security requirements",
+        "Scalar UI shows authentication options",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Admin API Key Generation",
-      "description": "As a developer, I want an API key generated for the admin so that I can authenticate programmatically.",
+      "title": "Export OpenAPI spec to file",
+      "description": "As a developer, I want to export the OpenAPI spec to a JSON file for SDK generation.",
       "acceptanceCriteria": [
-        "Generate API key in format: desi_sk_admin_{random32chars}",
-        "Store bcrypt hash of key in admin_api_keys table",
-        "Store key prefix (desi_sk_admin_xxxx) for identification",
-        "Set scopes to [admin, read, write, execute]",
-        "Set expiresAt to null (admin keys never expire)",
-        "Print full key to console with warning: Save this key - it won't be shown again",
-        "Save full key to ~/.desiAgent/admin-key.txt with 600 permissions",
-        "If key file exists and --force not set, warn and skip",
+        "Script created at scripts/export-openapi.ts",
+        "Script outputs spec to artifacts/openapi.json",
+        "artifacts/openapi.json added to .gitignore",
+        "npm script added: 'export-openapi': 'bun run scripts/export-openapi.ts'",
+        "Generated spec is valid OpenAPI 3.0",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-005",
-      "title": "User Table Schema",
-      "description": "As the system, I need user table schema defined for tenant databases.",
-      "acceptanceCriteria": [
-        "Define user schema in src/db/user-schema.ts for tenant databases",
-        "User fields: id, email, name, role (admin | member | viewer), tenantId, apiKeyId, createdAt, updatedAt",
-        "Users belong to exactly one tenant (single-tenant membership)",
-        "Schema uses Bun's SQLite module",
-        "Typecheck passes"
-      ],
-      "priority": 5,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-006",
-      "title": "Example Agents CSV File",
-      "description": "As a developer, I want an example CSV file documenting the agent seed format.",
-      "acceptanceCriteria": [
-        "Create scripts/example-agents.csv with sample agent data",
-        "CSV columns: id (optional), name (required), version (required), promptTemplate (required), provider (optional), model (optional), active (optional), metadata (optional)",
-        "Include 2-3 example agents with different configurations",
-        "Include comment or documentation about the expected file location ~/.desiAgent/seed/agents.csv",
-        "Typecheck passes"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-007",
-      "title": "Agents Seeding from CSV",
-      "description": "As the system, I want to seed agents from CSV so that initial agents are available.",
-      "acceptanceCriteria": [
-        "Read ~/.desiAgent/seed/agents.csv if it exists",
-        "Parse CSV with proper handling of quoted fields and escaped characters",
-        "Skip header row",
-        "Generate UUID for id if not provided",
-        "Validate required fields (name, version, promptTemplate)",
-        "Insert agents into admin.db agents table",
-        "Skip agents that already exist (by name+version unique constraint)",
-        "Log count of inserted vs skipped agents",
-        "Handle missing CSV file gracefully (log warning, continue)",
-        "Typecheck passes"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-008",
-      "title": "Default Tenant Creation",
-      "description": "As a developer, I want a default tenant created during bootstrap for testing.",
-      "acceptanceCriteria": [
-        "Create tenant with name default and slug default",
-        "Set status to active and plan to free",
-        "Create tenant database at ~/.desiAgent/tenants/default/agent.db",
-        "Initialize tenant DB with user table schema",
-        "Skip if default tenant already exists unless --force",
-        "Typecheck passes"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-009",
-      "title": "Bootstrap Service Logic",
-      "description": "As the system, I need a bootstrap service that orchestrates all initialization steps.",
-      "acceptanceCriteria": [
-        "Create src/services/bootstrap.ts with runBootstrap(options) function",
-        "Options include force boolean flag",
-        "Bootstrap creates ~/.desiAgent/ directory structure if missing",
-        "Bootstrap initializes admin.db with all schemas",
-        "Bootstrap creates super admin and API key",
-        "Bootstrap seeds agents from CSV",
-        "Bootstrap creates default tenant",
-        "Returns summary of what was created vs skipped",
-        "Typecheck passes"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-010",
-      "title": "Bootstrap Idempotency",
-      "description": "As a developer, I want bootstrap to be safe to re-run so that I don't corrupt data.",
-      "acceptanceCriteria": [
-        "Running bootstrap twice without --force preserves existing data",
-        "Existing admin not overwritten",
-        "Existing API keys not regenerated unless --force",
-        "Existing agents not duplicated (unique constraint on name+version)",
-        "--force flag regenerates API key and updates admin",
-        "Clear console output indicating what was created vs skipped",
-        "Typecheck passes"
-      ],
-      "priority": 10,
-      "passes": true,
+      "passes": false,
       "notes": ""
     }
   ]
