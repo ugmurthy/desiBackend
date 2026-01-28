@@ -19,16 +19,67 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Executions"],
+        summary: "List executions",
+        description: "Retrieve a paginated list of executions with optional filters for status and DAG ID.",
         querystring: {
           type: "object",
           properties: {
             status: {
               type: "string",
               enum: ["pending", "running", "waiting", "completed", "failed", "partial", "suspended"],
+              example: "completed",
             },
-            dagId: { type: "string" },
-            limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
-            offset: { type: "integer", minimum: 0, default: 0 },
+            dagId: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 20, example: 20 },
+            offset: { type: "integer", minimum: 0, default: 0, example: 0 },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "List of executions with pagination",
+            properties: {
+              executions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+                    dagId: { type: "string", example: "660e8400-e29b-41d4-a716-446655440001" },
+                    originalRequest: { type: "string", example: "Analyze data" },
+                    primaryIntent: { type: "string", example: "data_analysis" },
+                    status: { type: "string", example: "completed" },
+                    totalTasks: { type: "integer", example: 5 },
+                    completedTasks: { type: "integer", example: 5 },
+                    failedTasks: { type: "integer", example: 0 },
+                    waitingTasks: { type: "integer", example: 0 },
+                    startedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+                    completedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:01:00Z" },
+                    durationMs: { type: "integer", nullable: true, example: 60000 },
+                    createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+                  },
+                },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  total: { type: "integer", example: 10 },
+                  limit: { type: "integer", example: 20 },
+                  offset: { type: "integer", example: 0 },
+                  hasMore: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
           },
         },
       },
@@ -83,11 +134,61 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Executions"],
+        summary: "Get execution by ID",
+        description: "Retrieve detailed information about a specific execution by its unique identifier.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "Execution details",
+            properties: {
+              id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+              dagId: { type: "string", example: "660e8400-e29b-41d4-a716-446655440001" },
+              originalRequest: { type: "string", example: "Analyze data" },
+              primaryIntent: { type: "string", example: "data_analysis" },
+              status: { type: "string", example: "completed" },
+              totalTasks: { type: "integer", example: 5 },
+              completedTasks: { type: "integer", example: 5 },
+              failedTasks: { type: "integer", example: 0 },
+              waitingTasks: { type: "integer", example: 0 },
+              finalResult: { type: "object", nullable: true, example: { summary: "Analysis complete" } },
+              synthesisResult: { type: "string", nullable: true, example: "Data analysis completed successfully" },
+              suspendedReason: { type: "string", nullable: true, example: null },
+              suspendedAt: { type: "string", format: "date-time", nullable: true, example: null },
+              retryCount: { type: "integer", example: 0 },
+              totalUsage: { type: "object", nullable: true, example: { tokens: 1500 } },
+              totalCostUsd: { type: "number", nullable: true, example: 0.015 },
+              startedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+              completedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:01:00Z" },
+              durationMs: { type: "integer", nullable: true, example: 60000 },
+              createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+              updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:01:00Z" },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
+          },
+          404: {
+            type: "object",
+            description: "Execution not found",
+            properties: {
+              statusCode: { type: "integer", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Execution not found" },
+            },
           },
         },
       },
@@ -143,11 +244,74 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Executions"],
+        summary: "Get execution with sub-steps",
+        description: "Retrieve detailed information about a specific execution including all its sub-steps.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "Execution details with sub-steps",
+            properties: {
+              id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+              dagId: { type: "string", example: "660e8400-e29b-41d4-a716-446655440001" },
+              originalRequest: { type: "string", example: "Analyze data" },
+              primaryIntent: { type: "string", example: "data_analysis" },
+              status: { type: "string", example: "completed" },
+              totalTasks: { type: "integer", example: 5 },
+              completedTasks: { type: "integer", example: 5 },
+              failedTasks: { type: "integer", example: 0 },
+              waitingTasks: { type: "integer", example: 0 },
+              finalResult: { type: "object", nullable: true, example: { summary: "Analysis complete" } },
+              synthesisResult: { type: "string", nullable: true, example: "Data analysis completed successfully" },
+              suspendedReason: { type: "string", nullable: true, example: null },
+              suspendedAt: { type: "string", format: "date-time", nullable: true, example: null },
+              retryCount: { type: "integer", example: 0 },
+              totalUsage: { type: "object", nullable: true, example: { tokens: 1500 } },
+              totalCostUsd: { type: "number", nullable: true, example: 0.015 },
+              startedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+              completedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:01:00Z" },
+              durationMs: { type: "integer", nullable: true, example: 60000 },
+              createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+              updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:01:00Z" },
+              subSteps: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", example: "step-001" },
+                    name: { type: "string", example: "Fetch data" },
+                    status: { type: "string", example: "completed" },
+                    result: { type: "object", nullable: true },
+                  },
+                },
+                example: [{ id: "step-001", name: "Fetch data", status: "completed", result: null }],
+              },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
+          },
+          404: {
+            type: "object",
+            description: "Execution not found",
+            properties: {
+              statusCode: { type: "integer", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Execution not found" },
+            },
           },
         },
       },
@@ -204,11 +368,54 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Executions"],
+        summary: "Get execution sub-steps",
+        description: "Retrieve only the sub-steps for a specific execution.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "Sub-steps for the execution",
+            properties: {
+              executionId: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+              subSteps: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", example: "step-001" },
+                    name: { type: "string", example: "Fetch data" },
+                    status: { type: "string", example: "completed" },
+                    result: { type: "object", nullable: true },
+                  },
+                },
+                example: [{ id: "step-001", name: "Fetch data", status: "completed", result: null }],
+              },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
+          },
+          404: {
+            type: "object",
+            description: "Execution not found",
+            properties: {
+              statusCode: { type: "integer", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Execution not found" },
+            },
           },
         },
       },
@@ -245,11 +452,38 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Executions"],
+        summary: "Delete execution",
+        description: "Delete a specific execution by its unique identifier.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          204: {
+            type: "null",
+            description: "Execution deleted successfully",
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
+          },
+          404: {
+            type: "object",
+            description: "Execution not found",
+            properties: {
+              statusCode: { type: "integer", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Execution not found" },
+            },
           },
         },
       },
@@ -282,11 +516,51 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Executions"],
+        summary: "Resume suspended execution",
+        description: "Resume a suspended or waiting execution. Only executions in 'suspended' or 'waiting' status can be resumed.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          202: {
+            type: "object",
+            description: "Execution resumed successfully",
+            properties: {
+              id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+              status: { type: "string", example: "running" },
+            },
+          },
+          400: {
+            type: "object",
+            description: "Execution is not in a paused state",
+            properties: {
+              statusCode: { type: "integer", example: 400 },
+              error: { type: "string", example: "Bad Request" },
+              message: { type: "string", example: "Execution is not in a paused state. Current status: completed" },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
+          },
+          404: {
+            type: "object",
+            description: "Execution not found",
+            properties: {
+              statusCode: { type: "integer", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Execution not found" },
+            },
           },
         },
       },

@@ -63,26 +63,89 @@ const EXECUTION_RATE_LIMIT = {
   },
 };
 
+const errorResponseSchema = {
+  type: "object",
+  properties: {
+    statusCode: { type: "integer", example: 400 },
+    error: { type: "string", example: "Bad Request" },
+    message: { type: "string", example: "Validation failed" },
+  },
+};
+
+const dagResponseSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+    objective: { type: "string", example: "Analyze sales data" },
+    nodes: { type: "array", items: { type: "object" }, example: [] },
+    edges: { type: "array", items: { type: "object" }, example: [] },
+    status: { type: "string", example: "active" },
+    createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+    updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+    metadata: { type: "object", example: {} },
+  },
+};
+
 const dagsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: CreateDagBody }>(
     "/dags",
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["DAGs"],
+        summary: "Create DAG from goal",
+        description: "Creates a new DAG (Directed Acyclic Graph) from a goal text using an AI agent. The DAG represents a workflow that can be executed to achieve the specified goal.",
         body: {
           type: "object",
           required: ["goalText", "agentName"],
           properties: {
-            goalText: { type: "string", minLength: 1 },
-            agentName: { type: "string", minLength: 1 },
-            provider: { type: "string", enum: ["openai", "openrouter", "ollama"] },
-            model: { type: "string" },
-            temperature: { type: "number", minimum: 0, maximum: 2 },
-            maxTokens: { type: "integer", minimum: 1 },
-            seed: { type: "integer" },
-            cronSchedule: { type: "string" },
-            scheduleActive: { type: "boolean" },
-            timezone: { type: "string" },
+            goalText: { type: "string", minLength: 1, example: "Analyze quarterly sales data and generate insights" },
+            agentName: { type: "string", minLength: 1, example: "data-analyst" },
+            provider: { type: "string", enum: ["openai", "openrouter", "ollama"], example: "openai" },
+            model: { type: "string", example: "gpt-4" },
+            temperature: { type: "number", minimum: 0, maximum: 2, example: 0.7 },
+            maxTokens: { type: "integer", minimum: 1, example: 4096 },
+            seed: { type: "integer", example: 42 },
+            cronSchedule: { type: "string", example: "0 9 * * 1" },
+            scheduleActive: { type: "boolean", example: true },
+            timezone: { type: "string", example: "America/New_York" },
+          },
+        },
+        response: {
+          201: {
+            description: "DAG created successfully",
+            type: "object",
+            properties: {
+              status: { type: "string", example: "success" },
+              dagId: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+              result: { type: "object" },
+              usage: { type: "object" },
+              generationStats: { type: "object" },
+              attempts: { type: "integer", example: 1 },
+            },
+          },
+          202: {
+            description: "Clarification required from user",
+            type: "object",
+            properties: {
+              status: { type: "string", example: "clarification_required" },
+              clarificationQuery: { type: "string", example: "Please specify the date range for the analysis" },
+              result: { type: "object" },
+              usage: { type: "object" },
+              generationStats: { type: "object" },
+            },
+          },
+          400: {
+            description: "Invalid request body",
+            ...errorResponseSchema,
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
+          },
+          404: {
+            description: "Agent not found",
+            ...errorResponseSchema,
           },
         },
       },
@@ -168,17 +231,56 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["DAGs"],
+        summary: "List DAGs with filters",
+        description: "Retrieves a paginated list of DAGs with optional filtering by status and creation date range.",
         querystring: {
           type: "object",
           properties: {
             status: {
               type: "string",
               enum: ["pending", "active", "paused", "completed", "failed", "cancelled"],
+              example: "active",
             },
-            createdAfter: { type: "string", format: "date-time" },
-            createdBefore: { type: "string", format: "date-time" },
-            limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
-            offset: { type: "integer", minimum: 0, default: 0 },
+            createdAfter: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+            createdBefore: { type: "string", format: "date-time", example: "2024-12-31T23:59:59Z" },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 20, example: 20 },
+            offset: { type: "integer", minimum: 0, default: 0, example: 0 },
+          },
+        },
+        response: {
+          200: {
+            description: "List of DAGs retrieved successfully",
+            type: "object",
+            properties: {
+              dags: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+                    objective: { type: "string", example: "Analyze sales data" },
+                    status: { type: "string", example: "active" },
+                    createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+                    updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+                    metadata: { type: "object", example: {} },
+                  },
+                },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  total: { type: "integer", example: 50 },
+                  limit: { type: "integer", example: 20 },
+                  offset: { type: "integer", example: 0 },
+                  hasMore: { type: "boolean", example: true },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
           },
         },
       },
@@ -228,6 +330,36 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
     "/dags/scheduled",
     {
       preHandler: [authenticate],
+      schema: {
+        tags: ["DAGs"],
+        summary: "List scheduled DAGs",
+        description: "Retrieves all DAGs that have a cron schedule configured, along with their scheduling details.",
+        response: {
+          200: {
+            description: "List of scheduled DAGs retrieved successfully",
+            type: "object",
+            properties: {
+              dags: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+                    dagTitle: { type: "string", example: "Weekly Sales Report" },
+                    cronSchedule: { type: "string", example: "0 9 * * 1" },
+                    scheduleDescription: { type: "string", example: "Every Monday at 9:00 AM" },
+                    scheduleActive: { type: "boolean", example: true },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
+          },
+        },
+      },
     },
     async (request) => {
       const auth = request.auth!;
@@ -254,11 +386,28 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["DAGs"],
+        summary: "Get DAG by ID",
+        description: "Retrieves a specific DAG by its unique identifier, including all nodes, edges, and metadata.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          200: {
+            description: "DAG retrieved successfully",
+            ...dagResponseSchema,
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
+          },
+          404: {
+            description: "DAG not found",
+            ...errorResponseSchema,
           },
         },
       },
@@ -301,21 +450,42 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["DAGs"],
+        summary: "Update DAG",
+        description: "Updates a DAG's properties such as status, schedule, or title. Only the provided fields will be updated.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
           },
         },
         body: {
           type: "object",
           properties: {
-            status: { type: "string" },
-            cronSchedule: { type: ["string", "null"] },
-            scheduleActive: { type: "boolean" },
-            timezone: { type: "string" },
-            dagTitle: { type: "string" },
+            status: { type: "string", example: "paused" },
+            cronSchedule: { type: ["string", "null"], example: "0 9 * * 1" },
+            scheduleActive: { type: "boolean", example: false },
+            timezone: { type: "string", example: "America/New_York" },
+            dagTitle: { type: "string", example: "Updated Sales Analysis" },
+          },
+        },
+        response: {
+          200: {
+            description: "DAG updated successfully",
+            ...dagResponseSchema,
+          },
+          400: {
+            description: "Invalid request body",
+            ...errorResponseSchema,
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
+          },
+          404: {
+            description: "DAG not found",
+            ...errorResponseSchema,
           },
         },
       },
@@ -366,11 +536,32 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["DAGs"],
+        summary: "Delete DAG",
+        description: "Safely deletes a DAG by its ID. This operation is idempotent.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          204: {
+            description: "DAG deleted successfully",
+            type: "null",
+          },
+          400: {
+            description: "Invalid request",
+            ...errorResponseSchema,
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
+          },
+          404: {
+            description: "DAG not found",
+            ...errorResponseSchema,
           },
         },
       },
@@ -411,18 +602,39 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
       ...EXECUTION_RATE_LIMIT,
       preHandler: [authenticate],
       schema: {
+        tags: ["DAGs"],
+        summary: "Execute a DAG",
+        description: "Triggers the execution of an existing DAG. The execution runs asynchronously and returns immediately with an execution ID.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
           },
         },
         body: {
           type: "object",
           properties: {
-            provider: { type: "string", enum: ["openai", "openrouter", "ollama"] },
-            model: { type: "string" },
+            provider: { type: "string", enum: ["openai", "openrouter", "ollama"], example: "openai" },
+            model: { type: "string", example: "gpt-4" },
+          },
+        },
+        response: {
+          202: {
+            description: "DAG execution started",
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid", example: "660e8400-e29b-41d4-a716-446655440001" },
+              status: { type: "string", example: "pending" },
+            },
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
+          },
+          404: {
+            description: "DAG not found",
+            ...errorResponseSchema,
           },
         },
       },
@@ -434,7 +646,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
-
+      console.log("[dags/:id/execute] auth", JSON.stringify(auth, null, 2));
       try {
         const result = await client.dags.execute(id, { provider, model });
         return reply.status(202).send({
@@ -460,12 +672,39 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
       ...EXECUTION_RATE_LIMIT,
       preHandler: [authenticate],
       schema: {
+        tags: ["DAGs"],
+        summary: "Execute from definition",
+        description: "Executes a DAG directly from a provided definition without saving it first. Useful for testing or one-off executions.",
         body: {
           type: "object",
           required: ["definition", "originalGoalText"],
           properties: {
-            definition: { type: "object" },
-            originalGoalText: { type: "string", minLength: 1 },
+            definition: {
+              type: "object",
+              example: {
+                nodes: [{ id: "node1", type: "task", config: {} }],
+                edges: [],
+              },
+            },
+            originalGoalText: { type: "string", minLength: 1, example: "Analyze sales data for Q4" },
+          },
+        },
+        response: {
+          202: {
+            description: "DAG execution from definition started",
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid", example: "770e8400-e29b-41d4-a716-446655440002" },
+              status: { type: "string", example: "pending" },
+            },
+          },
+          400: {
+            description: "Invalid definition or request body",
+            ...errorResponseSchema,
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
           },
         },
       },
@@ -505,16 +744,52 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
       ...EXECUTION_RATE_LIMIT,
       preHandler: [authenticate],
       schema: {
+        tags: ["DAGs"],
+        summary: "Run experiments",
+        description: "Runs multiple DAG generation experiments with different model and temperature combinations to compare results.",
         body: {
           type: "object",
           required: ["goalText", "agentName", "provider", "models", "temperatures"],
           properties: {
-            goalText: { type: "string", minLength: 1 },
-            agentName: { type: "string", minLength: 1 },
-            provider: { type: "string", enum: ["openai", "openrouter", "ollama"] },
-            models: { type: "array", items: { type: "string" }, minItems: 1 },
-            temperatures: { type: "array", items: { type: "number", minimum: 0, maximum: 2 }, minItems: 1 },
-            seed: { type: "integer" },
+            goalText: { type: "string", minLength: 1, example: "Analyze quarterly sales data" },
+            agentName: { type: "string", minLength: 1, example: "data-analyst" },
+            provider: { type: "string", enum: ["openai", "openrouter", "ollama"], example: "openai" },
+            models: {
+              type: "array",
+              items: { type: "string" },
+              minItems: 1,
+              example: ["gpt-4", "gpt-3.5-turbo"],
+            },
+            temperatures: {
+              type: "array",
+              items: { type: "number", minimum: 0, maximum: 2 },
+              minItems: 1,
+              example: [0.3, 0.7, 1.0],
+            },
+            seed: { type: "integer", example: 42 },
+          },
+        },
+        response: {
+          202: {
+            description: "Experiments started",
+            type: "object",
+            properties: {
+              experimentId: { type: "string", format: "uuid", example: "880e8400-e29b-41d4-a716-446655440003" },
+              totalRuns: { type: "integer", example: 6 },
+              status: { type: "string", example: "running" },
+            },
+          },
+          400: {
+            description: "Invalid request body",
+            ...errorResponseSchema,
+          },
+          401: {
+            description: "Unauthorized - missing or invalid authentication",
+            ...errorResponseSchema,
+          },
+          404: {
+            description: "Agent not found",
+            ...errorResponseSchema,
           },
         },
       },

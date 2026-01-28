@@ -81,6 +81,63 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     "/users",
     {
       preHandler: [authenticate, ensureRole("admin")],
+      schema: {
+        tags: ["Users"],
+        summary: "List all users",
+        description: "Retrieves a list of all users in the tenant. Requires admin role.",
+        response: {
+          200: {
+            description: "List of users retrieved successfully",
+            type: "object",
+            properties: {
+              users: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+                    email: { type: "string", example: "user@example.com" },
+                    name: { type: "string", example: "John Doe" },
+                    role: { type: "string", enum: ["admin", "member", "viewer"], example: "member" },
+                    createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
+                    updatedAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
+                  },
+                },
+              },
+            },
+            example: {
+              users: [
+                {
+                  id: "550e8400-e29b-41d4-a716-446655440000",
+                  email: "admin@example.com",
+                  name: "Admin User",
+                  role: "admin",
+                  createdAt: "2024-01-15T10:30:00.000Z",
+                  updatedAt: "2024-01-15T10:30:00.000Z",
+                },
+              ],
+            },
+          },
+          401: {
+            description: "Unauthorized - Invalid or missing authentication",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Authentication required" },
+            },
+          },
+          500: {
+            description: "Internal server error",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 500 },
+              error: { type: "string", example: "Internal Server Error" },
+              message: { type: "string", example: "An unexpected error occurred" },
+            },
+          },
+        },
+      },
     },
     async (request) => {
       const auth = request.auth!;
@@ -104,11 +161,63 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Users"],
+        summary: "Get user by ID",
+        description: "Retrieves a specific user by their unique identifier.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", description: "User ID", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          200: {
+            description: "User retrieved successfully",
+            type: "object",
+            properties: {
+              id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+              email: { type: "string", example: "user@example.com" },
+              name: { type: "string", example: "John Doe" },
+              role: { type: "string", enum: ["admin", "member", "viewer"], example: "member" },
+              createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
+              updatedAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
+            },
+            example: {
+              id: "550e8400-e29b-41d4-a716-446655440000",
+              email: "user@example.com",
+              name: "John Doe",
+              role: "member",
+              createdAt: "2024-01-15T10:30:00.000Z",
+              updatedAt: "2024-01-15T10:30:00.000Z",
+            },
+          },
+          401: {
+            description: "Unauthorized - Invalid or missing authentication",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Authentication required" },
+            },
+          },
+          404: {
+            description: "User not found",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "User not found" },
+            },
+          },
+          500: {
+            description: "Internal server error",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 500 },
+              error: { type: "string", example: "Internal Server Error" },
+              message: { type: "string", example: "An unexpected error occurred" },
+            },
           },
         },
       },
@@ -143,18 +252,82 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate, ensureRole("admin")],
       schema: {
+        tags: ["Users"],
+        summary: "Update user role",
+        description: "Updates the role of a specific user. Requires admin role.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", description: "User ID", example: "550e8400-e29b-41d4-a716-446655440000" },
           },
         },
         body: {
           type: "object",
           required: ["role"],
           properties: {
-            role: { type: "string", enum: ["admin", "member", "viewer"] },
+            role: { type: "string", enum: ["admin", "member", "viewer"], description: "New role for the user", example: "admin" },
+          },
+          example: {
+            role: "admin",
+          },
+        },
+        response: {
+          200: {
+            description: "User role updated successfully",
+            type: "object",
+            properties: {
+              id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+              email: { type: "string", example: "user@example.com" },
+              name: { type: "string", example: "John Doe" },
+              role: { type: "string", enum: ["admin", "member", "viewer"], example: "admin" },
+              createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
+              updatedAt: { type: "string", example: "2024-01-16T14:20:00.000Z" },
+            },
+            example: {
+              id: "550e8400-e29b-41d4-a716-446655440000",
+              email: "user@example.com",
+              name: "John Doe",
+              role: "admin",
+              createdAt: "2024-01-15T10:30:00.000Z",
+              updatedAt: "2024-01-16T14:20:00.000Z",
+            },
+          },
+          400: {
+            description: "Bad request - Invalid input",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 400 },
+              error: { type: "string", example: "Bad Request" },
+              message: { type: "string", example: "Invalid role value" },
+            },
+          },
+          401: {
+            description: "Unauthorized - Invalid or missing authentication",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Authentication required" },
+            },
+          },
+          404: {
+            description: "User not found",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "User not found" },
+            },
+          },
+          500: {
+            description: "Internal server error",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 500 },
+              error: { type: "string", example: "Internal Server Error" },
+              message: { type: "string", example: "Failed to update user" },
+            },
           },
         },
       },
@@ -202,11 +375,56 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate, ensureRole("admin")],
       schema: {
+        tags: ["Users"],
+        summary: "Delete user",
+        description: "Deletes a specific user from the tenant. Requires admin role. Cannot delete your own account.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", description: "User ID", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          204: {
+            description: "User deleted successfully",
+            type: "null",
+          },
+          400: {
+            description: "Bad request - Cannot delete own account",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 400 },
+              error: { type: "string", example: "Bad Request" },
+              message: { type: "string", example: "Cannot delete your own user account" },
+            },
+          },
+          401: {
+            description: "Unauthorized - Invalid or missing authentication",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Authentication required" },
+            },
+          },
+          404: {
+            description: "User not found",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "User not found" },
+            },
+          },
+          500: {
+            description: "Internal server error",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 500 },
+              error: { type: "string", example: "Internal Server Error" },
+              message: { type: "string", example: "Failed to delete user" },
+            },
           },
         },
       },
@@ -252,13 +470,79 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate, ensureRole("admin")],
       schema: {
+        tags: ["Users"],
+        summary: "Invite new user",
+        description: "Creates a new user invitation in the tenant. Requires admin role.",
         body: {
           type: "object",
           required: ["email", "name"],
           properties: {
-            email: { type: "string", format: "email" },
-            name: { type: "string", minLength: 1, maxLength: 100 },
-            role: { type: "string", enum: ["admin", "member", "viewer"] },
+            email: { type: "string", format: "email", description: "Email address of the user to invite", example: "newuser@example.com" },
+            name: { type: "string", minLength: 1, maxLength: 100, description: "Full name of the user", example: "Jane Smith" },
+            role: { type: "string", enum: ["admin", "member", "viewer"], description: "Role to assign to the user (defaults to member)", example: "member" },
+          },
+          example: {
+            email: "newuser@example.com",
+            name: "Jane Smith",
+            role: "member",
+          },
+        },
+        response: {
+          201: {
+            description: "User invited successfully",
+            type: "object",
+            properties: {
+              id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440001" },
+              email: { type: "string", example: "newuser@example.com" },
+              name: { type: "string", example: "Jane Smith" },
+              role: { type: "string", enum: ["admin", "member", "viewer"], example: "member" },
+              createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
+              updatedAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
+            },
+            example: {
+              id: "550e8400-e29b-41d4-a716-446655440001",
+              email: "newuser@example.com",
+              name: "Jane Smith",
+              role: "member",
+              createdAt: "2024-01-15T10:30:00.000Z",
+              updatedAt: "2024-01-15T10:30:00.000Z",
+            },
+          },
+          400: {
+            description: "Bad request - Invalid input",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 400 },
+              error: { type: "string", example: "Bad Request" },
+              message: { type: "string", example: "Invalid email format" },
+            },
+          },
+          401: {
+            description: "Unauthorized - Invalid or missing authentication",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Authentication required" },
+            },
+          },
+          409: {
+            description: "Conflict - User already exists",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 409 },
+              error: { type: "string", example: "Conflict" },
+              message: { type: "string", example: "User with this email already exists" },
+            },
+          },
+          500: {
+            description: "Internal server error",
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 500 },
+              error: { type: "string", example: "Internal Server Error" },
+              message: { type: "string", example: "An unexpected error occurred" },
+            },
           },
         },
       },

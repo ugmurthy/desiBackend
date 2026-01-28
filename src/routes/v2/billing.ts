@@ -55,6 +55,57 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     "/billing/usage",
     {
       preHandler: [authenticate],
+      schema: {
+        tags: ["Billing"],
+        summary: "Get current billing period usage",
+        description: "Retrieves usage statistics and costs for the current billing period including tokens, compute time, executions, and DAGs.",
+        response: {
+          200: {
+            type: "object",
+            description: "Current billing period usage data",
+            properties: {
+              tenantId: { type: "string", example: "tenant_abc123" },
+              period: {
+                type: "object",
+                properties: {
+                  start: { type: "string", format: "date-time", example: "2024-01-01T00:00:00.000Z" },
+                  end: { type: "string", format: "date-time", example: "2024-01-31T23:59:59.999Z" },
+                },
+              },
+              usage: {
+                type: "object",
+                properties: {
+                  totalTokens: { type: "integer", example: 150000 },
+                  computeTimeMs: { type: "integer", example: 3600000 },
+                  totalExecutions: { type: "integer", example: 42 },
+                  totalDags: { type: "integer", example: 5 },
+                },
+              },
+              costs: {
+                type: "object",
+                properties: {
+                  tokenCost: { type: "number", example: 15.0 },
+                  computeCost: { type: "number", example: 7.5 },
+                  totalCost: { type: "number", example: 22.5 },
+                },
+              },
+              quotas: {
+                type: "object",
+                example: { maxTokens: 1000000, maxComputeTimeMs: 36000000 },
+              },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized - Invalid or missing authentication",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
+          },
+        },
+      },
     },
     async (request) => {
       const auth = request.auth!;
@@ -117,13 +168,91 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Billing"],
+        summary: "Get usage history with pagination",
+        description: "Retrieves historical usage records with optional date filtering and pagination support.",
         querystring: {
           type: "object",
           properties: {
-            startDate: { type: "string", format: "date" },
-            endDate: { type: "string", format: "date" },
-            limit: { type: "integer", minimum: 1, maximum: 100, default: 50 },
-            offset: { type: "integer", minimum: 0, default: 0 },
+            startDate: { type: "string", format: "date", example: "2024-01-01" },
+            endDate: { type: "string", format: "date", example: "2024-01-31" },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 50, example: 50 },
+            offset: { type: "integer", minimum: 0, default: 0, example: 0 },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "Usage history with pagination",
+            properties: {
+              tenantId: { type: "string", example: "tenant_abc123" },
+              period: {
+                type: "object",
+                properties: {
+                  startDate: { type: "string", nullable: true, example: "2024-01-01" },
+                  endDate: { type: "string", nullable: true, example: "2024-01-31" },
+                },
+              },
+              records: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", example: "usage_xyz789" },
+                    resourceType: { type: "string", example: "tokens" },
+                    quantity: { type: "integer", example: 5000 },
+                    unitCost: { type: "number", example: 0.0001 },
+                    metadata: {
+                      type: "object",
+                      properties: {
+                        executionId: { type: "string", nullable: true, example: "exec_123" },
+                        dagId: { type: "string", nullable: true, example: "dag_456" },
+                        model: { type: "string", nullable: true, example: "gpt-4" },
+                        inputTokens: { type: "integer", nullable: true, example: 3000 },
+                        outputTokens: { type: "integer", nullable: true, example: 2000 },
+                        computeTimeMs: { type: "integer", nullable: true, example: 1500 },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time", example: "2024-01-15T10:30:00.000Z" },
+                  },
+                },
+              },
+              summary: {
+                type: "object",
+                properties: {
+                  byResourceType: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        resourceType: { type: "string", example: "tokens" },
+                        totalQuantity: { type: "integer", example: 150000 },
+                        totalCost: { type: "number", example: 15.0 },
+                      },
+                    },
+                  },
+                  totalCost: { type: "number", example: 22.5 },
+                },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  total: { type: "integer", example: 100 },
+                  limit: { type: "integer", example: 50 },
+                  offset: { type: "integer", example: 0 },
+                  hasMore: { type: "boolean", example: true },
+                },
+              },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized - Invalid or missing authentication",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
           },
         },
       },
@@ -198,15 +327,61 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Billing"],
+        summary: "List invoices",
+        description: "Retrieves a paginated list of invoices for the authenticated tenant with optional status filtering.",
         querystring: {
           type: "object",
           properties: {
             status: {
               type: "string",
               enum: ["draft", "pending", "paid", "cancelled"],
+              example: "paid",
             },
-            limit: { type: "integer", minimum: 1, maximum: 100, default: 50 },
-            offset: { type: "integer", minimum: 0, default: 0 },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 50, example: 50 },
+            offset: { type: "integer", minimum: 0, default: 0, example: 0 },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "List of invoices with pagination",
+            properties: {
+              tenantId: { type: "string", example: "tenant_abc123" },
+              invoices: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", example: "inv_abc123" },
+                    periodStart: { type: "string", format: "date-time", example: "2024-01-01T00:00:00.000Z" },
+                    periodEnd: { type: "string", format: "date-time", example: "2024-01-31T23:59:59.999Z" },
+                    subtotal: { type: "number", example: 22.5 },
+                    total: { type: "number", example: 22.5 },
+                    status: { type: "string", enum: ["draft", "pending", "paid", "cancelled"], example: "paid" },
+                    createdAt: { type: "string", format: "date-time", example: "2024-02-01T00:00:00.000Z" },
+                  },
+                },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  total: { type: "integer", example: 12 },
+                  limit: { type: "integer", example: 50 },
+                  offset: { type: "integer", example: 0 },
+                  hasMore: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized - Invalid or missing authentication",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
           },
         },
       },
@@ -248,11 +423,66 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Billing"],
+        summary: "Get invoice details",
+        description: "Retrieves detailed information for a specific invoice including line items and totals.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", example: "inv_abc123" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "Invoice details with line items",
+            properties: {
+              id: { type: "string", example: "inv_abc123" },
+              tenantId: { type: "string", example: "tenant_abc123" },
+              period: {
+                type: "object",
+                properties: {
+                  start: { type: "string", format: "date-time", example: "2024-01-01T00:00:00.000Z" },
+                  end: { type: "string", format: "date-time", example: "2024-01-31T23:59:59.999Z" },
+                },
+              },
+              lineItems: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    resourceType: { type: "string", example: "tokens" },
+                    description: { type: "string", example: "Token usage for January 2024" },
+                    quantity: { type: "integer", example: 150000 },
+                    unitCost: { type: "number", example: 0.0001 },
+                    total: { type: "number", example: 15.0 },
+                  },
+                },
+              },
+              subtotal: { type: "number", example: 22.5 },
+              total: { type: "number", example: 22.5 },
+              status: { type: "string", enum: ["draft", "pending", "paid", "cancelled"], example: "paid" },
+              createdAt: { type: "string", format: "date-time", example: "2024-02-01T00:00:00.000Z" },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized - Invalid or missing authentication",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
+          },
+          404: {
+            type: "object",
+            description: "Invoice not found",
+            properties: {
+              statusCode: { type: "integer", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Invoice with id 'inv_xyz' not found" },
+            },
           },
         },
       },

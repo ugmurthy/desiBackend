@@ -23,11 +23,64 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Costs"],
+        summary: "Get execution cost details",
+        description: "Retrieves detailed cost and usage information for a specific execution, including token usage, compute time, and associated costs.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", description: "Execution ID", examples: ["exec_abc123"] },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "Execution cost details",
+            properties: {
+              executionId: { type: "string", examples: ["exec_abc123"] },
+              dagId: { type: "string", examples: ["dag_xyz789"] },
+              status: { type: "string", examples: ["completed"] },
+              usage: {
+                type: "object",
+                properties: {
+                  totalTokens: { type: "number", examples: [15000] },
+                  inputTokens: { type: "number", examples: [10000] },
+                  outputTokens: { type: "number", examples: [5000] },
+                  computeTimeMs: { type: "number", examples: [12500] },
+                },
+              },
+              costs: {
+                type: "object",
+                properties: {
+                  tokenCost: { type: "number", examples: [0.045] },
+                  computeCost: { type: "number", examples: [0.012] },
+                  totalCost: { type: "number", examples: [0.057] },
+                },
+              },
+              model: { type: ["string", "null"], examples: ["gpt-4"] },
+              startedAt: { type: "string", format: "date-time", examples: ["2024-01-15T10:30:00Z"] },
+              completedAt: { type: ["string", "null"], format: "date-time", examples: ["2024-01-15T10:32:00Z"] },
+              durationMs: { type: ["number", "null"], examples: [120000] },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "number", examples: [401] },
+              error: { type: "string", examples: ["Unauthorized"] },
+              message: { type: "string", examples: ["Invalid or missing authentication token"] },
+            },
+          },
+          404: {
+            type: "object",
+            description: "Execution not found",
+            properties: {
+              statusCode: { type: "number", examples: [404] },
+              error: { type: "string", examples: ["Not Found"] },
+              message: { type: "string", examples: ["Execution not found"] },
+            },
           },
         },
       },
@@ -100,11 +153,72 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Costs"],
+        summary: "Get DAG cost details",
+        description: "Retrieves aggregated cost and usage information for a DAG, including totals across all executions and per-execution breakdown.",
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" },
+            id: { type: "string", description: "DAG ID", examples: ["dag_xyz789"] },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "DAG cost details",
+            properties: {
+              dagId: { type: "string", examples: ["dag_xyz789"] },
+              objective: { type: "string", examples: ["Process customer data"] },
+              totalExecutions: { type: "number", examples: [5] },
+              usage: {
+                type: "object",
+                properties: {
+                  totalTokens: { type: "number", examples: [75000] },
+                  computeTimeMs: { type: "number", examples: [62500] },
+                },
+              },
+              costs: {
+                type: "object",
+                properties: {
+                  tokenCost: { type: "number", examples: [0.225] },
+                  computeCost: { type: "number", examples: [0.06] },
+                  totalCost: { type: "number", examples: [0.285] },
+                },
+              },
+              executions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    executionId: { type: "string", examples: ["exec_abc123"] },
+                    status: { type: "string", examples: ["completed"] },
+                    totalCost: { type: "number", examples: [0.057] },
+                    startedAt: { type: "string", format: "date-time", examples: ["2024-01-15T10:30:00Z"] },
+                    completedAt: { type: ["string", "null"], format: "date-time", examples: ["2024-01-15T10:32:00Z"] },
+                  },
+                },
+              },
+              createdAt: { type: "string", format: "date-time", examples: ["2024-01-10T08:00:00Z"] },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "number", examples: [401] },
+              error: { type: "string", examples: ["Unauthorized"] },
+              message: { type: "string", examples: ["Invalid or missing authentication token"] },
+            },
+          },
+          404: {
+            type: "object",
+            description: "DAG not found",
+            properties: {
+              statusCode: { type: "number", examples: [404] },
+              error: { type: "string", examples: ["Not Found"] },
+              message: { type: "string", examples: ["DAG not found"] },
+            },
           },
         },
       },
@@ -196,11 +310,81 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [authenticate],
       schema: {
+        tags: ["Costs"],
+        summary: "Get overall cost summary",
+        description: "Retrieves an aggregated cost summary for the tenant, including usage breakdown by resource type and model. Supports optional date range filtering.",
         querystring: {
           type: "object",
           properties: {
-            startDate: { type: "string", format: "date" },
-            endDate: { type: "string", format: "date" },
+            startDate: { type: "string", format: "date", description: "Start date for filtering (inclusive)", examples: ["2024-01-01"] },
+            endDate: { type: "string", format: "date", description: "End date for filtering (inclusive)", examples: ["2024-01-31"] },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "Cost summary",
+            properties: {
+              tenantId: { type: "string", examples: ["tenant_123"] },
+              period: {
+                type: "object",
+                properties: {
+                  startDate: { type: ["string", "null"], examples: ["2024-01-01"] },
+                  endDate: { type: ["string", "null"], examples: ["2024-01-31"] },
+                },
+              },
+              usage: {
+                type: "object",
+                properties: {
+                  totalTokens: { type: "number", examples: [500000] },
+                  computeTimeMs: { type: "number", examples: [300000] },
+                },
+              },
+              costs: {
+                type: "object",
+                properties: {
+                  tokenCost: { type: "number", examples: [1.5] },
+                  computeCost: { type: "number", examples: [0.3] },
+                  totalCost: { type: "number", examples: [1.8] },
+                },
+              },
+              breakdown: {
+                type: "object",
+                properties: {
+                  byResourceType: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        resourceType: { type: "string", examples: ["tokens"] },
+                        quantity: { type: "number", examples: [500000] },
+                        cost: { type: "number", examples: [1.5] },
+                      },
+                    },
+                  },
+                  byModel: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        model: { type: "string", examples: ["gpt-4"] },
+                        tokens: { type: "number", examples: [300000] },
+                        cost: { type: "number", examples: [0.9] },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "number", examples: [401] },
+              error: { type: "string", examples: ["Unauthorized"] },
+              message: { type: "string", examples: ["Invalid or missing authentication token"] },
+            },
           },
         },
       },

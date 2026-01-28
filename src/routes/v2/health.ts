@@ -4,7 +4,28 @@ import { getAdminDatabase } from "../../db/admin-schema";
 const startTime = Date.now();
 
 const healthRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get("/health", async () => {
+  fastify.get("/health", {
+    schema: {
+      tags: ["Health"],
+      summary: "Health check",
+      description: "Returns the current health status, version, and uptime of the service",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            status: { type: "string" },
+            version: { type: "string" },
+            uptime: { type: "number" },
+          },
+          example: {
+            status: "ok",
+            version: "1.0.0",
+            uptime: 3600,
+          },
+        },
+      },
+    },
+  }, async () => {
     return {
       status: "ok",
       version: "1.0.0",
@@ -12,7 +33,41 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
     };
   });
 
-  fastify.get("/health/ready", async () => {
+  fastify.get("/health/ready", {
+    schema: {
+      tags: ["Health"],
+      summary: "Readiness check",
+      description: "Checks if the service is ready to accept requests by verifying database connectivity",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            status: { type: "string" },
+            checks: {
+              type: "object",
+              properties: {
+                database: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string" },
+                    error: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          example: {
+            status: "ready",
+            checks: {
+              database: {
+                status: "connected",
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async () => {
     let dbStatus: "connected" | "disconnected" = "disconnected";
     let dbError: string | undefined;
 

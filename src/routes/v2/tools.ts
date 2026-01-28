@@ -7,6 +7,51 @@ const toolsRoutes: FastifyPluginAsync = async (fastify) => {
     "/tools",
     {
       preHandler: [authenticate],
+      schema: {
+        tags: ["Tools"],
+        summary: "List available tools",
+        description: "Retrieves a list of all available tools for the authenticated tenant",
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              tools: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    description: { type: "string" },
+                    parameters: { type: "object" },
+                  },
+                },
+              },
+            },
+            example: {
+              tools: [
+                {
+                  name: "search",
+                  description: "Search for information",
+                  parameters: { type: "object", properties: { query: { type: "string" } } },
+                },
+              ],
+            },
+          },
+          401: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number" },
+              error: { type: "string" },
+              message: { type: "string" },
+            },
+            example: {
+              statusCode: 401,
+              error: "Unauthorized",
+              message: "Invalid or missing authentication",
+            },
+          },
+        },
+      },
     },
     async (request) => {
       const auth = request.auth!;
