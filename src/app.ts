@@ -21,6 +21,11 @@ import { initializeTenantClientService } from "./services/tenant-client";
 export async function buildApp() {
   const app = Fastify({
     logger: true,
+    ajv: {
+      customOptions: {
+        keywords: ["example"],
+      },
+    },
   });
 
   await app.register(fastifyEnv, {

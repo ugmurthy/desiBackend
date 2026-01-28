@@ -52,7 +52,7 @@ export async function initializeTenantUserSchema(tenantId: string): Promise<Data
   }
   
   const result = await initDB(dbPath, { force: false });
-  console.log("Database initialization result:", JSON.stringify(result,null, 2));
+  //console.log("Database initialization result:", JSON.stringify(result,null, 2));
   const db = new Database(dbPath);
   initializeUserSchema(db);
   initializeApiKeySchema(db);

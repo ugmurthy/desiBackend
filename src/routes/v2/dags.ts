@@ -75,7 +75,7 @@ const errorResponseSchema = {
 const dagResponseSchema = {
   type: "object",
   properties: {
-    id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+    id: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
     objective: { type: "string", example: "Analyze sales data" },
     nodes: { type: "array", items: { type: "object" }, example: [] },
     edges: { type: "array", items: { type: "object" }, example: [] },
@@ -117,7 +117,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             type: "object",
             properties: {
               status: { type: "string", example: "success" },
-              dagId: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+              dagId: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
               result: { type: "object" },
               usage: { type: "object" },
               generationStats: { type: "object" },
@@ -258,7 +258,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
                 items: {
                   type: "object",
                   properties: {
-                    id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+                    id: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
                     objective: { type: "string", example: "Analyze sales data" },
                     status: { type: "string", example: "active" },
                     createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
@@ -344,7 +344,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
                 items: {
                   type: "object",
                   properties: {
-                    id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+                    id: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
                     dagTitle: { type: "string", example: "Weekly Sales Report" },
                     cronSchedule: { type: "string", example: "0 9 * * 1" },
                     scheduleDescription: { type: "string", example: "Every Monday at 9:00 AM" },
@@ -393,7 +393,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+            id: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
           },
         },
         response: {
@@ -457,7 +457,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+            id: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
           },
         },
         body: {
@@ -543,7 +543,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+            id: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
           },
         },
         response: {
@@ -609,7 +609,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+            id: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
           },
         },
         body: {
@@ -624,7 +624,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             description: "DAG execution started",
             type: "object",
             properties: {
-              id: { type: "string", format: "uuid", example: "660e8400-e29b-41d4-a716-446655440001" },
+              id: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
               status: { type: "string", example: "pending" },
             },
           },
@@ -694,7 +694,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             description: "DAG execution from definition started",
             type: "object",
             properties: {
-              id: { type: "string", format: "uuid", example: "770e8400-e29b-41d4-a716-446655440002" },
+              id: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
               status: { type: "string", example: "pending" },
             },
           },
@@ -774,7 +774,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Experiments started",
             type: "object",
             properties: {
-              experimentId: { type: "string", format: "uuid", example: "880e8400-e29b-41d4-a716-446655440003" },
+              experimentId: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
               totalRuns: { type: "integer", example: 6 },
               status: { type: "string", example: "running" },
             },
