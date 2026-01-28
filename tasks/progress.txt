@@ -145,3 +145,18 @@ Thread: https://ampcode.com/threads/T-019bff6a-2bf1-70dc-919e-dfc3a7039f20
   - Use `openApiDocumentEndpoints` to customize where JSON/YAML are served (defaults to /openapi.json, /openapi.yaml)
   - Pre-existing typecheck errors in scripts/create-api-key.ts are unrelated to swagger changes
 ---
+
+## 2026-01-28 - US-002
+Thread: https://ampcode.com/threads/T-019c0238-deae-71ad-b017-f18d4e6d8a1e
+- Added OpenAPI schema definitions to all 10 route modules
+- Files changed: src/routes/v2/auth.ts, users.ts, agents.ts, executions.ts, dags.ts, tools.ts, billing.ts, costs.ts, admin.ts, health.ts
+- 46 total routes documented with tags, summaries, descriptions
+- All routes have response schemas with proper status codes (200, 201, 202, 204, 400, 401, 403, 404, 409, 500)
+- Example values included in all request/response schemas
+- **Learnings for future iterations:**
+  - OpenAPI schemas in Fastify are added via the `schema` property in route options
+  - Use `tags: ["TagName"]` to group endpoints in Swagger UI
+  - Include `summary`, `description`, and `response` with status codes and examples
+  - Pre-existing typecheck errors in scripts/create-api-key.ts are unrelated to route changes
+  - Response schemas should include error responses (401, 404, etc.) with statusCode, error, message properties
+---
