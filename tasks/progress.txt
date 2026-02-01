@@ -212,3 +212,21 @@ Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
   - Email templates include both HTML and plain text versions
   - Invite emails expire in 7 days, verification in 24h, password reset in 1h
 ---
+
+## 2026-02-01 - US-005, US-006, US-007 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c1984-09c3-7347-8324-53773cd97d96
+- Implemented user self-registration, email verification, and login endpoints
+- Created src/routes/v2/auth-session.ts with all three endpoints
+- Added BASE_URL to env config for generating email verification links
+- Registered auth-session routes in app.ts
+- Files changed: src/config/env.ts, src/routes/v2/auth-session.ts, src/app.ts
+- **Endpoints implemented:**
+  - POST /auth/register/:tenantSlug - creates user, sends verification email
+  - GET /auth/verify-email/:token - verifies email, clears token
+  - POST /auth/login/:tenantSlug - authenticates user, creates session, logs auth events
+- **Learnings for future iterations:**
+  - Use UserRow interface for raw SQLite rows, then convert with rowToUser() to handle emailVerified boolean conversion
+  - SQLite stores booleans as 0/1, must convert when reading into TypeScript types
+  - Auth logs use logAuthEvent() helper with request for IP/userAgent extraction
+  - Session tokens use generateSessionToken() from user-schema.ts with desi_session_ prefix
+---

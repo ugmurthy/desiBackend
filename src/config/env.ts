@@ -38,6 +38,10 @@ export const envSchema = {
       type: "string" as const,
       default: "http://localhost:11434",
     },
+    BASE_URL: {
+      type: "string" as const,
+      default: "http://localhost:3000",
+    },
   },
 };
 
@@ -51,6 +55,7 @@ export type EnvConfig = {
   OPENAI_API_KEY: string;
   OPENROUTER_API_KEY: string;
   OLLAMA_BASE_URL: string;
+  BASE_URL: string;
 };
 
 declare module "fastify" {

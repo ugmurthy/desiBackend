@@ -8,6 +8,7 @@ import { envSchema } from "./config/env";
 import errorHandler from "./plugins/error-handler";
 import healthRoutes from "./routes/v2/health";
 import authRoutes from "./routes/v2/auth";
+import authSessionRoutes from "./routes/v2/auth-session";
 import usersRoutes from "./routes/v2/users";
 import agentsRoutes from "./routes/v2/agents";
 import dagsRoutes from "./routes/v2/dags";
@@ -133,6 +134,7 @@ export async function buildApp() {
 
   await app.register(healthRoutes, { prefix: "/api/v2" });
   await app.register(authRoutes, { prefix: "/api/v2" });
+  await app.register(authSessionRoutes, { prefix: "/api/v2" });
   await app.register(usersRoutes, { prefix: "/api/v2" });
   await app.register(agentsRoutes, { prefix: "/api/v2" });
   await app.register(dagsRoutes, { prefix: "/api/v2" });

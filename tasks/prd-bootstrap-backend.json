@@ -1,0 +1,174 @@
+{
+  "project": "desiAgent Backend",
+  "branchName": "ralph/bootstrap-backend",
+  "description": "Bootstrap system for initializing the desiAgent backend with super admin, API key, database schemas, and seed agents from CSV",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Bootstrap CLI Command",
+      "description": "As a developer, I want a CLI command to bootstrap the admin so that I can initialize the system manually.",
+      "acceptanceCriteria": [
+        "Create scripts/bootstrap.ts executable via bun run bootstrap-admin",
+        "Add script to package.json: bootstrap-admin: bun run scripts/bootstrap.ts",
+        "Command accepts optional --force flag to re-run even if admin exists",
+        "Command exits with code 0 on success, 1 on failure",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Admin Database Schema Extensions",
+      "description": "As the system, I need super_admins and admin_api_keys tables for admin authentication.",
+      "acceptanceCriteria": [
+        "Add super_admins table to src/db/admin-schema.ts (id, email, name, passwordHash, createdAt, updatedAt)",
+        "Add admin_api_keys table (id, adminId, keyHash, keyPrefix, scopes JSON, expiresAt, createdAt, revokedAt)",
+        "Add agents table for seeding (id, name, version, promptTemplate, provider, model, active, metadata, createdAt, updatedAt)",
+        "Agents table has UNIQUE constraint on (name, version)",
+        "Tables created in ~/.desiAgent/admin.db",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Super Admin Creation",
+      "description": "As a developer, I want the bootstrap to create a super admin so that I can manage tenants.",
+      "acceptanceCriteria": [
+        "Create super admin with email from ADMIN_EMAIL env var (default: admin@desiagent.local)",
+        "Create super admin with name from ADMIN_NAME env var (default: Super Admin)",
+        "If admin already exists, skip creation unless --force flag provided",
+        "Store admin record in super_admins table",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Admin API Key Generation",
+      "description": "As a developer, I want an API key generated for the admin so that I can authenticate programmatically.",
+      "acceptanceCriteria": [
+        "Generate API key in format: desi_sk_admin_{random32chars}",
+        "Store bcrypt hash of key in admin_api_keys table",
+        "Store key prefix (desi_sk_admin_xxxx) for identification",
+        "Set scopes to [admin, read, write, execute]",
+        "Set expiresAt to null (admin keys never expire)",
+        "Print full key to console with warning: Save this key - it won't be shown again",
+        "Save full key to ~/.desiAgent/admin-key.txt with 600 permissions",
+        "If key file exists and --force not set, warn and skip",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "User Table Schema",
+      "description": "As the system, I need user table schema defined for tenant databases.",
+      "acceptanceCriteria": [
+        "Define user schema in src/db/user-schema.ts for tenant databases",
+        "User fields: id, email, name, role (admin | member | viewer), tenantId, apiKeyId, createdAt, updatedAt",
+        "Users belong to exactly one tenant (single-tenant membership)",
+        "Schema uses Bun's SQLite module",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Example Agents CSV File",
+      "description": "As a developer, I want an example CSV file documenting the agent seed format.",
+      "acceptanceCriteria": [
+        "Create scripts/example-agents.csv with sample agent data",
+        "CSV columns: id (optional), name (required), version (required), promptTemplate (required), provider (optional), model (optional), active (optional), metadata (optional)",
+        "Include 2-3 example agents with different configurations",
+        "Include comment or documentation about the expected file location ~/.desiAgent/seed/agents.csv",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Agents Seeding from CSV",
+      "description": "As the system, I want to seed agents from CSV so that initial agents are available.",
+      "acceptanceCriteria": [
+        "Read ~/.desiAgent/seed/agents.csv if it exists",
+        "Parse CSV with proper handling of quoted fields and escaped characters",
+        "Skip header row",
+        "Generate UUID for id if not provided",
+        "Validate required fields (name, version, promptTemplate)",
+        "Insert agents into admin.db agents table",
+        "Skip agents that already exist (by name+version unique constraint)",
+        "Log count of inserted vs skipped agents",
+        "Handle missing CSV file gracefully (log warning, continue)",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Default Tenant Creation",
+      "description": "As a developer, I want a default tenant created during bootstrap for testing.",
+      "acceptanceCriteria": [
+        "Create tenant with name default and slug default",
+        "Set status to active and plan to free",
+        "Create tenant database at ~/.desiAgent/tenants/default/agent.db",
+        "Initialize tenant DB with user table schema",
+        "Skip if default tenant already exists unless --force",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Bootstrap Service Logic",
+      "description": "As the system, I need a bootstrap service that orchestrates all initialization steps.",
+      "acceptanceCriteria": [
+        "Create src/services/bootstrap.ts with runBootstrap(options) function",
+        "Options include force boolean flag",
+        "Bootstrap creates ~/.desiAgent/ directory structure if missing",
+        "Bootstrap initializes admin.db with all schemas",
+        "Bootstrap creates super admin and API key",
+        "Bootstrap seeds agents from CSV",
+        "Bootstrap creates default tenant",
+        "Returns summary of what was created vs skipped",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Bootstrap Idempotency",
+      "description": "As a developer, I want bootstrap to be safe to re-run so that I don't corrupt data.",
+      "acceptanceCriteria": [
+        "Running bootstrap twice without --force preserves existing data",
+        "Existing admin not overwritten",
+        "Existing API keys not regenerated unless --force",
+        "Existing agents not duplicated (unique constraint on name+version)",
+        "--force flag regenerates API key and updates admin",
+        "Clear console output indicating what was created vs skipped",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
