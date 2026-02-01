@@ -174,3 +174,41 @@ Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
   - Session tokens use base64url encoding (Buffer.from().toString("base64url")) for URL-safe tokens
   - Foreign key with ON DELETE CASCADE ensures sessions are cleaned up when user is deleted
 ---
+
+## 2026-02-01 - US-002 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
+- Added password and email verification fields to User interface and users table
+- Fields: passwordHash, emailVerified, emailVerificationToken, emailVerificationExpiry, passwordResetToken, passwordResetExpiry, inviteToken, inviteExpiry
+- Created src/utils/password.ts with Argon2id hashing via Bun.password API
+- Files changed: src/db/user-schema.ts, src/utils/password.ts
+- **Learnings for future iterations:**
+  - Bun.password.hash() with algorithm: "argon2id" provides built-in Argon2 support
+  - SQLite booleans stored as INTEGER (0/1), use emailVerified INTEGER NOT NULL DEFAULT 0
+  - Token expiry fields use INTEGER for Unix timestamps
+---
+
+## 2026-02-01 - US-003 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
+- Added auth_logs table and AuthLog interface for security auditing
+- Columns: id, tenantId, email, event (login_success/login_failed), ipAddress, userAgent, createdAt
+- Added indexes on tenantId, email, event, createdAt
+- Created initializeAuthLogSchema() called during tenant DB initialization
+- Files changed: src/db/user-schema.ts
+- **Learnings for future iterations:**
+  - AuthLogEvent type is "login_success" | "login_failed"
+  - auth_logs table is tenant-scoped but includes tenantId for cross-tenant queries
+---
+
+## 2026-02-01 - US-004 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
+- Created email service abstraction in src/services/email.ts
+- Implemented EmailProvider interface with pluggable providers
+- Created ConsoleEmailProvider for development (logs to console)
+- Functions: sendVerificationEmail, sendPasswordResetEmail, sendInviteEmail, sendEmailChangeNotification
+- All emails include tenant name and appropriate links with HTML and text versions
+- Files changed: src/services/email.ts
+- **Learnings for future iterations:**
+  - Use setEmailProvider() to swap in production email provider (e.g., SendGrid, Postmark)
+  - Email templates include both HTML and plain text versions
+  - Invite emails expire in 7 days, verification in 24h, password reset in 1h
+---
