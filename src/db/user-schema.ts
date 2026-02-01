@@ -18,6 +18,15 @@ export interface User {
   updatedAt: string;
 }
 
+export interface Session {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: number; // Unix timestamp
+  createdAt: number; // Unix timestamp
+  updatedAt: number; // Unix timestamp
+}
+
 const TENANT_DB_BASE = join(homedir(), ".desiAgent", "tenants");
 
 export function getTenantDbPath(tenantId: string): string {
@@ -43,6 +52,35 @@ export function initializeUserSchema(db: Database): void {
   `);
 }
 
+export function initializeSessionSchema(db: Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expiresAt INTEGER NOT NULL,
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+      updatedAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+    CREATE INDEX IF NOT EXISTS idx_sessions_userId ON sessions(userId);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expiresAt ON sessions(expiresAt);
+  `);
+}
+
+/**
+ * Generate a secure session token (32 bytes, base64url encoded)
+ * Returns token with desi_session_ prefix
+ */
+export function generateSessionToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const base64 = Buffer.from(bytes).toString("base64url");
+  return `desi_session_${base64}`;
+}
+
 export async function initializeTenantUserSchema(tenantId: string): Promise<Database> {
   const dbPath = getTenantDbPath(tenantId);
   const dbDir = dirname(dbPath);
@@ -56,5 +94,6 @@ export async function initializeTenantUserSchema(tenantId: string): Promise<Data
   const db = new Database(dbPath);
   initializeUserSchema(db);
   initializeApiKeySchema(db);
+  initializeSessionSchema(db);
   return db;
 }
