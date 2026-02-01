@@ -14,6 +14,14 @@ export interface User {
   role: UserRole;
   tenantId: string;
   apiKeyId: string | null;
+  passwordHash: string | null;
+  emailVerified: boolean;
+  emailVerificationToken: string | null;
+  emailVerificationExpiry: number | null;
+  passwordResetToken: string | null;
+  passwordResetExpiry: number | null;
+  inviteToken: string | null;
+  inviteExpiry: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +33,18 @@ export interface Session {
   expiresAt: number; // Unix timestamp
   createdAt: number; // Unix timestamp
   updatedAt: number; // Unix timestamp
+}
+
+export type AuthLogEvent = "login_success" | "login_failed";
+
+export interface AuthLog {
+  id: string;
+  tenantId: string;
+  email: string;
+  event: AuthLogEvent;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: number; // Unix timestamp
 }
 
 const TENANT_DB_BASE = join(homedir(), ".desiAgent", "tenants");
@@ -42,6 +62,14 @@ export function initializeUserSchema(db: Database): void {
       role TEXT NOT NULL DEFAULT 'member',
       tenantId TEXT NOT NULL,
       apiKeyId TEXT,
+      passwordHash TEXT,
+      emailVerified INTEGER NOT NULL DEFAULT 0,
+      emailVerificationToken TEXT,
+      emailVerificationExpiry INTEGER,
+      passwordResetToken TEXT,
+      passwordResetExpiry INTEGER,
+      inviteToken TEXT,
+      inviteExpiry INTEGER,
       createdAt TEXT NOT NULL DEFAULT (datetime('now')),
       updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -70,6 +98,25 @@ export function initializeSessionSchema(db: Database): void {
   `);
 }
 
+export function initializeAuthLogSchema(db: Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS auth_logs (
+      id TEXT PRIMARY KEY,
+      tenantId TEXT NOT NULL,
+      email TEXT NOT NULL,
+      event TEXT NOT NULL,
+      ipAddress TEXT,
+      userAgent TEXT,
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_auth_logs_tenantId ON auth_logs(tenantId);
+    CREATE INDEX IF NOT EXISTS idx_auth_logs_email ON auth_logs(email);
+    CREATE INDEX IF NOT EXISTS idx_auth_logs_event ON auth_logs(event);
+    CREATE INDEX IF NOT EXISTS idx_auth_logs_createdAt ON auth_logs(createdAt);
+  `);
+}
+
 /**
  * Generate a secure session token (32 bytes, base64url encoded)
  * Returns token with desi_session_ prefix
@@ -95,5 +142,6 @@ export async function initializeTenantUserSchema(tenantId: string): Promise<Data
   initializeUserSchema(db);
   initializeApiKeySchema(db);
   initializeSessionSchema(db);
+  initializeAuthLogSchema(db);
   return db;
 }
