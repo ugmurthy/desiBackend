@@ -230,3 +230,18 @@ Thread: https://ampcode.com/threads/T-019c1984-09c3-7347-8324-53773cd97d96
   - Auth logs use logAuthEvent() helper with request for IP/userAgent extraction
   - Session tokens use generateSessionToken() from user-schema.ts with desi_session_ prefix
 ---
+
+## 2026-02-01 - US-008, US-009, US-010, US-011 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c1987-6cc0-7261-b113-adc179bb5521
+- Implemented session limit enforcement, session-based auth, logout, and password reset request
+- Files changed: src/middleware/authenticate.ts, src/routes/v2/auth-session.ts, src/types/fastify.d.ts
+- **US-008:** enforceMaxSessions() deletes oldest sessions when user has >= 2 active sessions
+- **US-009:** Middleware detects token type by prefix (desi_session_* vs desi_sk_*), validates sessions, extends expiry (sliding window)
+- **US-010:** POST /auth/logout - deletes session, returns 204
+- **US-011:** POST /auth/forgot-password/:tenantSlug - always returns 200, sends reset email if user exists
+- **Learnings for future iterations:**
+  - AuthContext now includes authType: 'api_key' | 'session' and apiKey is nullable
+  - Remember to update src/types/fastify.d.ts when changing AuthContext interface
+  - lookupSessionToken() searches all tenant DBs for the session token
+  - Session sliding window: extendSessionExpiry() adds 7 days on each valid request
+---
