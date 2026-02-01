@@ -245,3 +245,18 @@ Thread: https://ampcode.com/threads/T-019c1987-6cc0-7261-b113-adc179bb5521
   - lookupSessionToken() searches all tenant DBs for the session token
   - Session sliding window: extendSessionExpiry() adds 7 days on each valid request
 ---
+
+## 2026-02-01 - US-012, US-013, US-014 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c198b-c11f-7349-a55d-97753c477629
+- Implemented password reset, admin invite, and accept invite endpoints
+- Files changed: src/routes/v2/auth-session.ts, tasks/prd.json
+- **US-012:** POST /auth/reset-password - validates token, updates password hash, invalidates all sessions
+- **US-013:** POST /auth/invite - admin-only endpoint, creates user with no password, sends invite email
+- **US-014:** POST /auth/accept-invite/:token - validates invite token (7 day expiry), sets password, marks email verified, creates session
+- **Learnings for future iterations:**
+  - Import authenticate and ensureRole from middleware directly, don't use fastify.authenticate
+  - Use AuthContext type for auth object typing: `(request as typeof request & { auth: AuthContext }).auth`
+  - getUserByPasswordResetToken() and getUserByInviteToken() helper functions added for token lookups
+  - Password reset invalidates ALL sessions for the user (security requirement)
+  - Invite flow: admin creates user with inviteToken → user accepts with password → emailVerified set to true
+---

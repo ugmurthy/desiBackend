@@ -9,7 +9,8 @@ import {
   type Session,
 } from "../../db/user-schema";
 import { hashPassword, verifyPassword } from "../../utils/password";
-import { sendVerificationEmail, sendPasswordResetEmail } from "../../services/email";
+import { sendVerificationEmail, sendPasswordResetEmail, sendInviteEmail } from "../../services/email";
+import { authenticate, ensureRole, type AuthContext } from "../../middleware/authenticate";
 
 const MAX_SESSIONS_PER_USER = 2;
 
@@ -29,6 +30,25 @@ interface VerifyEmailParams {
 
 interface LoginBody {
   email: string;
+  password: string;
+}
+
+interface ResetPasswordBody {
+  token: string;
+  newPassword: string;
+}
+
+interface InviteBody {
+  email: string;
+  name: string;
+  role: "admin" | "member" | "viewer";
+}
+
+interface AcceptInviteParams {
+  token: string;
+}
+
+interface AcceptInviteBody {
   password: string;
 }
 
@@ -106,6 +126,34 @@ function getUserByVerificationToken(db: Database, token: string): User | null {
            createdAt, updatedAt
     FROM users
     WHERE emailVerificationToken = ?
+  `);
+  const row = stmt.get(token) as UserRow | undefined;
+  if (!row) return null;
+  return rowToUser(row);
+}
+
+function getUserByPasswordResetToken(db: Database, token: string): User | null {
+  const stmt = db.prepare(`
+    SELECT id, email, name, role, tenantId, apiKeyId, passwordHash,
+           emailVerified, emailVerificationToken, emailVerificationExpiry,
+           passwordResetToken, passwordResetExpiry, inviteToken, inviteExpiry,
+           createdAt, updatedAt
+    FROM users
+    WHERE passwordResetToken = ?
+  `);
+  const row = stmt.get(token) as UserRow | undefined;
+  if (!row) return null;
+  return rowToUser(row);
+}
+
+function getUserByInviteToken(db: Database, token: string): User | null {
+  const stmt = db.prepare(`
+    SELECT id, email, name, role, tenantId, apiKeyId, passwordHash,
+           emailVerified, emailVerificationToken, emailVerificationExpiry,
+           passwordResetToken, passwordResetExpiry, inviteToken, inviteExpiry,
+           createdAt, updatedAt
+    FROM users
+    WHERE inviteToken = ?
   `);
   const row = stmt.get(token) as UserRow | undefined;
   if (!row) return null;
@@ -714,6 +762,353 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       return successResponse;
+    }
+  );
+
+  // US-012: Password reset endpoint
+  fastify.post<{ Body: ResetPasswordBody }>(
+    "/auth/reset-password",
+    {
+      ...AUTH_RATE_LIMIT,
+      schema: {
+        tags: ["Authentication"],
+        summary: "Reset password",
+        description: "Reset password using the token received via email. Invalidates all existing sessions.",
+        body: {
+          type: "object",
+          required: ["token", "newPassword"],
+          properties: {
+            token: { type: "string", example: "abc123..." },
+            newPassword: { type: "string", minLength: 8, example: "newSecurePassword123" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string", example: "Password reset successfully" },
+            },
+          },
+          400: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 400 },
+              error: { type: "string", example: "Bad Request" },
+              message: { type: "string", example: "Invalid or expired reset token" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { token, newPassword } = request.body;
+
+      if (!isValidPassword(newPassword)) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Password must be at least 8 characters",
+        });
+      }
+
+      // Search all tenant databases for the reset token
+      const adminDb = getAdminDatabase();
+      const tenantsStmt = adminDb.prepare(`SELECT id, name, slug, status FROM tenants WHERE status = 'active'`);
+      const tenants = tenantsStmt.all() as { id: string; name: string; slug: string; status: string }[];
+
+      let foundUser: User | null = null;
+      let foundTenantDb: Database | null = null;
+
+      for (const t of tenants) {
+        const tenantDb = await initializeTenantUserSchema(t.id);
+        const user = getUserByPasswordResetToken(tenantDb, token);
+        if (user) {
+          foundUser = user;
+          foundTenantDb = tenantDb;
+          break;
+        }
+      }
+
+      if (!foundUser || !foundTenantDb) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Invalid or expired reset token",
+        });
+      }
+
+      // Check if token is expired
+      const now = Math.floor(Date.now() / 1000);
+      if (!foundUser.passwordResetExpiry || foundUser.passwordResetExpiry < now) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Invalid or expired reset token",
+        });
+      }
+
+      // Hash new password
+      const passwordHash = await hashPassword(newPassword);
+
+      // Update password and clear reset token
+      const updateStmt = foundTenantDb.prepare(`
+        UPDATE users
+        SET passwordHash = ?, passwordResetToken = NULL, passwordResetExpiry = NULL, updatedAt = datetime('now')
+        WHERE id = ?
+      `);
+      updateStmt.run(passwordHash, foundUser.id);
+
+      // Invalidate all existing sessions for user
+      const deleteSessionsStmt = foundTenantDb.prepare(`DELETE FROM sessions WHERE userId = ?`);
+      deleteSessionsStmt.run(foundUser.id);
+
+      return {
+        message: "Password reset successfully",
+      };
+    }
+  );
+
+  // US-013: Admin invite user endpoint
+  fastify.post<{ Body: InviteBody }>(
+    "/auth/invite",
+    {
+      ...AUTH_RATE_LIMIT,
+      preHandler: [authenticate, ensureRole("admin")],
+      schema: {
+        tags: ["Authentication"],
+        summary: "Invite user (admin only)",
+        description: "Invite a new user by email. Creates user with no password and sends invite email.",
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: "object",
+          required: ["email", "name", "role"],
+          properties: {
+            email: { type: "string", format: "email", example: "newuser@example.com" },
+            name: { type: "string", minLength: 1, maxLength: 100, example: "Jane Doe" },
+            role: { type: "string", enum: ["admin", "member", "viewer"], example: "member" },
+          },
+        },
+        response: {
+          201: {
+            type: "object",
+            properties: {
+              message: { type: "string", example: "Invitation sent" },
+              userId: { type: "string", example: "user_abc123" },
+            },
+          },
+          400: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 400 },
+              error: { type: "string", example: "Bad Request" },
+              message: { type: "string", example: "Invalid email format" },
+            },
+          },
+          401: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Authentication required" },
+            },
+          },
+          403: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 403 },
+              error: { type: "string", example: "Forbidden" },
+              message: { type: "string", example: "Admin role required" },
+            },
+          },
+          409: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 409 },
+              error: { type: "string", example: "Conflict" },
+              message: { type: "string", example: "Email already exists in tenant" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { email, name, role } = request.body;
+      const auth = (request as typeof request & { auth: AuthContext }).auth;
+
+      if (!isValidEmail(email)) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Invalid email format",
+        });
+      }
+
+      // Check if email already exists in tenant
+      const existingUser = getUserByEmail(auth.tenantDb, email);
+      if (existingUser) {
+        return reply.status(409).send({
+          statusCode: 409,
+          error: "Conflict",
+          message: "Email already exists in tenant",
+        });
+      }
+
+      // Generate invite token
+      const inviteToken = generateVerificationToken();
+      const now = Math.floor(Date.now() / 1000);
+      const inviteExpiry = now + 7 * 24 * 60 * 60; // 7 days
+
+      // Create user with no password
+      const userId = crypto.randomUUID();
+      const insertStmt = auth.tenantDb.prepare(`
+        INSERT INTO users (id, email, name, role, tenantId, emailVerified, inviteToken, inviteExpiry, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?, datetime('now'), datetime('now'))
+      `);
+      insertStmt.run(userId, email, name, role, auth.tenant.id, inviteToken, inviteExpiry);
+
+      // Send invite email
+      const baseUrl = fastify.config.BASE_URL;
+      const inviteLink = `${baseUrl}/accept-invite/${inviteToken}`;
+
+      await sendInviteEmail({
+        email,
+        name,
+        tenantName: auth.tenant.name,
+        inviterName: auth.user.name,
+        inviteLink,
+        role,
+      });
+
+      return reply.status(201).send({
+        message: "Invitation sent",
+        userId,
+      });
+    }
+  );
+
+  // US-014: Accept invite endpoint
+  fastify.post<{ Params: AcceptInviteParams; Body: AcceptInviteBody }>(
+    "/auth/accept-invite/:token",
+    {
+      ...AUTH_RATE_LIMIT,
+      schema: {
+        tags: ["Authentication"],
+        summary: "Accept invite",
+        description: "Accept an invitation by setting a password. Creates a session on success.",
+        params: {
+          type: "object",
+          required: ["token"],
+          properties: {
+            token: { type: "string", example: "abc123..." },
+          },
+        },
+        body: {
+          type: "object",
+          required: ["password"],
+          properties: {
+            password: { type: "string", minLength: 8, example: "securepassword123" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              token: { type: "string", example: "desi_session_abc123..." },
+              expiresAt: { type: "number", example: 1706745600 },
+              user: {
+                type: "object",
+                properties: {
+                  id: { type: "string", example: "user_abc123" },
+                  email: { type: "string", example: "user@example.com" },
+                  name: { type: "string", example: "John Doe" },
+                  role: { type: "string", example: "member" },
+                },
+              },
+            },
+          },
+          400: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 400 },
+              error: { type: "string", example: "Bad Request" },
+              message: { type: "string", example: "Invalid or expired invite token" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { token } = request.params;
+      const { password } = request.body;
+
+      if (!isValidPassword(password)) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Password must be at least 8 characters",
+        });
+      }
+
+      // Search all tenant databases for the invite token
+      const adminDb = getAdminDatabase();
+      const tenantsStmt = adminDb.prepare(`SELECT id, name, slug, status FROM tenants WHERE status = 'active'`);
+      const tenants = tenantsStmt.all() as { id: string; name: string; slug: string; status: string }[];
+
+      let foundUser: User | null = null;
+      let foundTenantDb: Database | null = null;
+
+      for (const t of tenants) {
+        const tenantDb = await initializeTenantUserSchema(t.id);
+        const user = getUserByInviteToken(tenantDb, token);
+        if (user) {
+          foundUser = user;
+          foundTenantDb = tenantDb;
+          break;
+        }
+      }
+
+      if (!foundUser || !foundTenantDb) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Invalid or expired invite token",
+        });
+      }
+
+      // Check if token is expired (7 days)
+      const now = Math.floor(Date.now() / 1000);
+      if (!foundUser.inviteExpiry || foundUser.inviteExpiry < now) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Invalid or expired invite token",
+        });
+      }
+
+      // Hash password
+      const passwordHash = await hashPassword(password);
+
+      // Update user: set password, emailVerified, clear invite token
+      const updateStmt = foundTenantDb.prepare(`
+        UPDATE users
+        SET passwordHash = ?, emailVerified = 1, inviteToken = NULL, inviteExpiry = NULL, updatedAt = datetime('now')
+        WHERE id = ?
+      `);
+      updateStmt.run(passwordHash, foundUser.id);
+
+      // Create session and return token
+      const session = createSession(foundTenantDb, foundUser.id);
+
+      return {
+        token: session.token,
+        expiresAt: session.expiresAt,
+        user: {
+          id: foundUser.id,
+          email: foundUser.email,
+          name: foundUser.name,
+          role: foundUser.role,
+        },
+      };
     }
   );
 };
