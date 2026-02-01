@@ -4,7 +4,7 @@ import { mkdirSync, existsSync } from "fs";
 import { initializeAdminDatabase } from "../db/admin-schema";
 import { createSuperAdmin } from "./super-admin";
 import { createAdminApiKey } from "./admin-api-key";
-import {  ensureSeedDirectory, seedAgentsFromJSON } from "./agents-seed";
+
 import { createDefaultTenant } from "./default-tenant";
 
 export interface BootstrapOptions {
@@ -14,9 +14,6 @@ export interface BootstrapOptions {
 export interface BootstrapSummary {
   adminCreated: boolean;
   apiKeyCreated: boolean;
-  agentsInserted: number;
-  agentsSkipped: number;
-  agentErrors: number;
   tenantCreated: boolean;
 }
 
@@ -28,7 +25,6 @@ const DESI_AGENT_DIR = join(homedir(), ".desiAgent");
 function ensureDirectoryStructure(): void {
   const dirs = [
     DESI_AGENT_DIR,
-    join(DESI_AGENT_DIR, "seed"),
     join(DESI_AGENT_DIR, "tenants"),
   ];
 
@@ -49,7 +45,7 @@ export async function runBootstrap(
 
   console.log("📁 Ensuring directory structure...");
   ensureDirectoryStructure();
-  ensureSeedDirectory();
+
 
   console.log("🗄️  Initializing admin database...");
   initializeAdminDatabase();
@@ -68,15 +64,9 @@ export async function runBootstrap(
   console.log("\n🏢 Creating default tenant...");
   const tenantResult = await createDefaultTenant({ force });
 
-  console.log("\n🤖 Seeding agents into default tenant...");
-  const agentsResult = seedAgentsFromJSON("default");
-
   const summary: BootstrapSummary = {
     adminCreated: adminResult.created,
     apiKeyCreated: apiKeyResult.created,
-    agentsInserted: agentsResult.inserted,
-    agentsSkipped: agentsResult.skipped,
-    agentErrors: agentsResult.errors.length,
     tenantCreated: tenantResult.created,
   };
 
@@ -85,7 +75,6 @@ export async function runBootstrap(
   console.log("═".repeat(60));
   console.log(`   Super Admin:     ${summary.adminCreated ? "Created" : "Skipped (exists)"}`);
   console.log(`   Admin API Key:   ${summary.apiKeyCreated ? "Created" : "Skipped (exists)"}`);
-  console.log(`   Agents:          ${summary.agentsInserted} inserted, ${summary.agentsSkipped} skipped, ${summary.agentErrors} errors`);
   console.log(`   Default Tenant:  ${summary.tenantCreated ? "Created" : "Skipped (exists)"}`);
   console.log("═".repeat(60));
 

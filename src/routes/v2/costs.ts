@@ -404,8 +404,6 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
       const usageSummary = getUsageSummary(auth.tenant.id, dateRange);
       const usageRecords = getUsage(auth.tenant.id, dateRange);
 
-      const totalCost = usageSummary.reduce((sum, s) => sum + s.totalCost, 0);
-
       const tokenSummary = usageSummary.find((s) => s.resourceType === "tokens");
       const computeSummary = usageSummary.find((s) => s.resourceType === "compute_time");
 
@@ -423,11 +421,59 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
           }
         });
 
+      let totalTokens = tokenSummary?.totalQuantity ?? 0;
+      let totalComputeTimeMs = computeSummary?.totalQuantity ?? 0;
+      let tokenCost = tokenSummary?.totalCost ?? 0;
+      let computeCost = computeSummary?.totalCost ?? 0;
+      let resourceTypeBreakdown = usageSummary.map((s) => ({
+        resourceType: s.resourceType,
+        quantity: s.totalQuantity,
+        cost: s.totalCost,
+      }));
+
+      if (usageSummary.length === 0) {
+        const clientService = getTenantClientService();
+        const client = await clientService.getClient(auth.tenant.id);
+        const executions = await client.executions.list();
+
+        const filteredExecutions = dateRange
+          ? executions.filter((exec) => {
+              if (!exec.startedAt) return false;
+              const execDate = new Date(exec.startedAt).toISOString().split("T")[0] as string;
+              return execDate >= dateRange.start && execDate <= dateRange.end;
+            })
+          : executions;
+
+        for (const exec of filteredExecutions) {
+          const execTokens = (exec.totalUsage?.promptTokens ?? 0) + (exec.totalUsage?.completionTokens ?? 0);
+          totalTokens += execTokens;
+          totalComputeTimeMs += exec.durationMs ?? 0;
+          tokenCost += Number(exec.totalCostUsd) || 0;
+        }
+
+        if (totalTokens > 0 || tokenCost > 0) {
+          resourceTypeBreakdown.push({
+            resourceType: "tokens",
+            quantity: totalTokens,
+            cost: tokenCost,
+          });
+        }
+        if (totalComputeTimeMs > 0) {
+          resourceTypeBreakdown.push({
+            resourceType: "compute_time",
+            quantity: totalComputeTimeMs,
+            cost: computeCost,
+          });
+        }
+      }
+
       const modelBreakdown = Array.from(models.entries()).map(([model, data]) => ({
         model,
         tokens: data.tokens,
         cost: data.cost,
       }));
+
+      const totalCost = tokenCost + computeCost;
 
       return {
         tenantId: auth.tenant.id,
@@ -436,20 +482,16 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
           endDate: dateRange?.end ?? null,
         },
         usage: {
-          totalTokens: tokenSummary?.totalQuantity ?? 0,
-          computeTimeMs: computeSummary?.totalQuantity ?? 0,
+          totalTokens,
+          computeTimeMs: totalComputeTimeMs,
         },
         costs: {
-          tokenCost: tokenSummary?.totalCost ?? 0,
-          computeCost: computeSummary?.totalCost ?? 0,
+          tokenCost,
+          computeCost,
           totalCost,
         },
         breakdown: {
-          byResourceType: usageSummary.map((s) => ({
-            resourceType: s.resourceType,
-            quantity: s.totalQuantity,
-            cost: s.totalCost,
-          })),
+          byResourceType: resourceTypeBreakdown,
           byModel: modelBreakdown,
         },
       };

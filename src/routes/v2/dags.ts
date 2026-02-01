@@ -77,12 +77,12 @@ const dagResponseSchema = {
   properties: {
     id: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
     objective: { type: "string", example: "Analyze sales data" },
-    nodes: { type: "array", items: { type: "object" }, example: [] },
-    edges: { type: "array", items: { type: "object" }, example: [] },
+    nodes: { type: "array", items: { type: "object", additionalProperties: true }, example: [] },
+    edges: { type: "array", items: { type: "object", additionalProperties: true }, example: [] },
     status: { type: "string", example: "active" },
     createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
     updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
-    metadata: { type: "object", example: {} },
+    metadata: { type: "object", additionalProperties: true, example: {} },
   },
 };
 
@@ -421,7 +421,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const dag = await client.dags.get(id);
-
+        console.log("DAG:", dag);
         return {
           id: dag.id,
           objective: dag.objective,
@@ -624,7 +624,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             description: "DAG execution started",
             type: "object",
             properties: {
-              id: { type: "string",  example: "dag_EbvukFKKz6P4CveL-_sj_" },
+              id: { type: "string",  example: "exec_EbvukFKKz6P4CveL-_sj_" },
               status: { type: "string", example: "pending" },
             },
           },
@@ -646,7 +646,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
-      console.log("[dags/:id/execute] auth", JSON.stringify(auth, null, 2));
+      //console.log("[dags/:id/execute] auth", JSON.stringify(auth, null, 2));
       try {
         const result = await client.dags.execute(id, { provider, model });
         return reply.status(202).send({

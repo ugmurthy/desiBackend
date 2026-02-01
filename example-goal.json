@@ -1,0 +1,4 @@
+{
+  "goalText": "I am looking for various providers like browser-use.com .\\n provide me with a list of names with corresponding features. \\nStart of with a summary description of this category of service\\nSeparate them by their ability to provide js/ts/python based libraries\\n rank these providers in terms of customer base, reliability and usage \\nwrite the report to browser-agent.md\\n email the report to ugmurthy@gmail.com",
+  "agentName": "DecomposerV8"
+}

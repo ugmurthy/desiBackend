@@ -288,7 +288,8 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
                     id: { type: "string", example: "step-001" },
                     name: { type: "string", example: "Fetch data" },
                     status: { type: "string", example: "completed" },
-                    result: { type: "object", nullable: true },
+                    result:{type:"string",example:"..."}
+                    //result: { type: "object",additionalProperties: true, nullable: true},
                   },
                 },
                 example: [{ id: "step-001", name: "Fetch data", status: "completed", result: null }],
@@ -392,7 +393,8 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
                     id: { type: "string", example: "step-001" },
                     name: { type: "string", example: "Fetch data" },
                     status: { type: "string", example: "completed" },
-                    result: { type: "object", nullable: true },
+                    result: {type:"string",example:"..."}
+                    //result: { type: "object",additionalProperties: true, nullable: true },
                   },
                 },
                 example: [{ id: "step-001", name: "Fetch data", status: "completed", result: null }],
@@ -507,6 +509,87 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
         throw error;
+      }
+    }
+  );
+
+  fastify.get<{ Params: ExecutionIdParams }>(
+    "/executions/:id/events",
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ["Executions"],
+        summary: "Stream execution events",
+        description: "Stream real-time execution events via Server-Sent Events (SSE). The stream will close when the execution completes or fails.",
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+          },
+        },
+        response: {
+          200: {
+            type: "string",
+            description: "SSE event stream",
+          },
+          401: {
+            type: "object",
+            description: "Unauthorized",
+            properties: {
+              statusCode: { type: "integer", example: 401 },
+              error: { type: "string", example: "Unauthorized" },
+              message: { type: "string", example: "Invalid or missing authentication token" },
+            },
+          },
+          404: {
+            type: "object",
+            description: "Execution not found",
+            properties: {
+              statusCode: { type: "integer", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Execution not found" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      try {
+        await client.executions.get(id);
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Execution not found",
+          });
+        }
+        throw error;
+      }
+
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      });
+
+      try {
+        for await (const event of client.executions.streamEvents(id)) {
+          const data = JSON.stringify(event);
+          reply.raw.write(`data: ${data}\n\n`);
+        }
+      } catch (error) {
+        const errorData = JSON.stringify({ error: "Stream error", message: (error as Error).message });
+        reply.raw.write(`event: error\ndata: ${errorData}\n\n`);
+      } finally {
+        reply.raw.end();
       }
     }
   );

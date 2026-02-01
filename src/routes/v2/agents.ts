@@ -46,7 +46,7 @@ const agentResponseSchema = {
     provider: { type: "string", example: "openai" },
     model: { type: "string", example: "gpt-4" },
     isActive: { type: "boolean", example: true },
-    metadata: { type: "object", example: {} },
+    metadata: { type: "object", additionalProperties: true, example: {} },
     createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
     updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
   },
@@ -82,7 +82,7 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
               properties: {
                 provider: { type: "string", enum: ["openai", "openrouter", "ollama"], example: "openai" },
                 model: { type: "string", example: "gpt-4" },
-                metadata: { type: "object", example: {} },
+                metadata: { type: "object", additionalProperties: true, example: {} },
               },
             },
           },
@@ -292,7 +292,7 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
             name: { type: "string", minLength: 1, maxLength: 100, example: "translator-v2" },
             version: { type: "string", minLength: 1, maxLength: 50, example: "2.0" },
             systemPrompt: { type: "string", minLength: 1, example: "You are an improved translator..." },
-            metadata: { type: "object", example: { language: "en" } },
+            metadata: { type: "object", additionalProperties: true, example: { language: "en" } },
           },
         },
         response: {

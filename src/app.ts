@@ -28,6 +28,19 @@ export async function buildApp() {
     },
   });
 
+  // Handle requests with Content-Type but empty body (common with DELETE requests)
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+    if (!body || body === "") {
+      done(null, undefined);
+    } else {
+      try {
+        done(null, JSON.parse(body as string));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    }
+  });
+
   await app.register(fastifyEnv, {
     confKey: "config",
     schema: envSchema,
