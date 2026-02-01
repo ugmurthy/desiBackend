@@ -1,20 +1,16 @@
 {
   "project": "desiBackend",
-  "branchName": "ralph/openapi-swagger-docs",
-  "description": "OpenAPI 3.0 specification generation and interactive API documentation with Scalar UI",
+  "branchName": "ralph/email-password-auth",
+  "description": "Email/Password Authentication - Add email/password-based authentication alongside existing API key authentication with session management, email verification, and password reset flows.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Install and configure OpenAPI documentation plugins",
-      "description": "As a developer, I need Fastify configured with Swagger and Scalar so the API has auto-generated OpenAPI specs and interactive documentation.",
+      "title": "Add sessions table to tenant database",
+      "description": "As a developer, I need to store user sessions in the tenant DB so login state persists.",
       "acceptanceCriteria": [
-        "@fastify/swagger package installed",
-        "@scalar/fastify-api-reference package installed",
-        "Swagger plugin registered in app with OpenAPI 3.0 configuration",
-        "API info (title, version, description) configured",
-        "Scalar UI served at /api/v2/docs",
-        "OpenAPI JSON available at /api/v2/docs/json",
-        "UI renders correctly with all endpoints visible",
+        "Add sessions table with columns: id, userId, token (unique), expiresAt, createdAt, updatedAt",
+        "Add index on token for fast lookups",
+        "Session token is a secure random string (min 32 bytes, base64 encoded)",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -23,36 +19,28 @@
     },
     {
       "id": "US-002",
-      "title": "Add OpenAPI schemas to all route modules",
-      "description": "As a developer, I want all API endpoints documented with request/response schemas and example values so consumers understand how to use each endpoint.",
+      "title": "Add password and email verification fields to users table",
+      "description": "As a developer, I need to store hashed passwords and email verification state for email/password authentication.",
       "acceptanceCriteria": [
-        "All routes in src/routes/v2/auth.ts have OpenAPI schema definitions, tagged 'Authentication'",
-        "All routes in src/routes/v2/users.ts have OpenAPI schema definitions, tagged 'Users'",
-        "All routes in src/routes/v2/agents.ts have OpenAPI schema definitions, tagged 'Agents'",
-        "All routes in src/routes/v2/executions.ts have OpenAPI schema definitions, tagged 'Executions'",
-        "All routes in src/routes/v2/dags.ts have OpenAPI schema definitions, tagged 'DAGs'",
-        "All routes in src/routes/v2/tools.ts have OpenAPI schema definitions, tagged 'Tools'",
-        "All routes in src/routes/v2/billing.ts have OpenAPI schema definitions, tagged 'Billing'",
-        "All routes in src/routes/v2/costs.ts have OpenAPI schema definitions, tagged 'Costs'",
-        "All routes in src/routes/v2/admin.ts have OpenAPI schema definitions, tagged 'Admin'",
-        "All routes in src/routes/v2/health.ts have OpenAPI schema definitions, tagged 'Health'",
-        "Request body schemas defined for all POST/PUT/PATCH endpoints",
-        "Response schemas defined with proper status codes (200, 400, 401, 404, 500, etc.)",
-        "Example values included in all request/response schemas",
+        "Add passwordHash column to users table (nullable for API-key-only users)",
+        "Add emailVerified boolean column (default false)",
+        "Add emailVerificationToken column (nullable)",
+        "Add emailVerificationExpiry column (nullable)",
+        "Add passwordResetToken and passwordResetExpiry columns (nullable)",
+        "Add inviteToken and inviteExpiry columns (nullable)",
+        "Use Argon2id for password hashing",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Add security schemes for authentication",
-      "description": "As a developer, I want the OpenAPI spec to document authentication requirements so consumers know how to authenticate.",
+      "title": "Add auth_logs table for security auditing",
+      "description": "As an admin, I want failed login attempts logged for security auditing.",
       "acceptanceCriteria": [
-        "Bearer token security scheme defined in OpenAPI config",
-        "Protected routes marked with security requirements",
-        "Scalar UI shows authentication options",
+        "Create auth_logs table: id, tenantId, email, event (login_failed, login_success), ipAddress, userAgent, createdAt",
         "Typecheck passes"
       ],
       "priority": 3,
@@ -61,17 +49,202 @@
     },
     {
       "id": "US-004",
-      "title": "Export OpenAPI spec to file",
-      "description": "As a developer, I want to export the OpenAPI spec to a JSON file for SDK generation.",
+      "title": "Create email service abstraction",
+      "description": "As a developer, I need an email service to send verification and reset emails.",
       "acceptanceCriteria": [
-        "Script created at scripts/export-openapi.ts",
-        "Script outputs spec to artifacts/openapi.json",
-        "artifacts/openapi.json added to .gitignore",
-        "npm script added: 'export-openapi': 'bun run scripts/export-openapi.ts'",
-        "Generated spec is valid OpenAPI 3.0",
+        "Create src/services/email.ts with interface for sending emails",
+        "Support pluggable providers (start with console logging for dev)",
+        "Functions: sendVerificationEmail, sendPasswordResetEmail, sendInviteEmail",
+        "Emails include tenant name and appropriate links",
         "Typecheck passes"
       ],
       "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement user self-registration endpoint",
+      "description": "As a new user, I want to register with email/password for an existing tenant so I can access the system.",
+      "acceptanceCriteria": [
+        "POST /auth/register/:tenantSlug endpoint",
+        "Request body: { email, password, name }",
+        "Validates tenant slug exists and tenant is active",
+        "Validates email format and password strength (min 8 chars)",
+        "Returns 409 if email already registered in tenant",
+        "Creates user with emailVerified: false",
+        "Sends verification email with token link",
+        "Returns 201 with message 'Verification email sent'",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Implement email verification endpoint",
+      "description": "As a user, I want to verify my email so I can access protected resources.",
+      "acceptanceCriteria": [
+        "GET /auth/verify-email/:token endpoint",
+        "Validates token exists and not expired (24h expiry)",
+        "Sets emailVerified: true on user",
+        "Clears verification token fields",
+        "Returns 200 with success message",
+        "Returns 400 for invalid/expired token",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Implement login endpoint",
+      "description": "As a registered user, I want to log in with email/password so I can access the system.",
+      "acceptanceCriteria": [
+        "POST /auth/login/:tenantSlug endpoint",
+        "Request body: { email, password }",
+        "Validates tenant slug exists and is active",
+        "Returns 401 if email not found or password incorrect (same message for security)",
+        "Returns 403 if email not verified (with message to check email)",
+        "Creates session in DB with 7-day expiry",
+        "Returns session token and user info",
+        "Log successful and failed login attempts to auth_logs",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Enforce maximum sessions per user",
+      "description": "As a system, I need to limit active sessions per user to prevent resource abuse.",
+      "acceptanceCriteria": [
+        "Maximum 2 active sessions per user",
+        "On new login, if limit reached, delete oldest session",
+        "Expired sessions don't count toward limit",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Implement session-based authentication in middleware",
+      "description": "As a developer, I need the authenticate middleware to accept session tokens alongside API keys.",
+      "acceptanceCriteria": [
+        "Middleware detects token type by prefix: desi_sk_* = API key, desi_session_* = session",
+        "For session tokens: lookup in sessions table, validate not expired",
+        "Extend session expiry by 7 days on each valid request (sliding window)",
+        "Attach same AuthContext shape for both auth types",
+        "For sessions: apiKey field in context is null or contains session info",
+        "Add authType: 'api_key' | 'session' to AuthContext",
+        "Returns 401 for expired/invalid sessions",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Implement logout endpoint",
+      "description": "As a logged-in user, I want to log out so my session is invalidated.",
+      "acceptanceCriteria": [
+        "POST /auth/logout endpoint",
+        "Requires valid session token in Authorization header",
+        "Deletes session from DB",
+        "Returns 204 on success",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Implement password reset request endpoint",
+      "description": "As a user who forgot my password, I want to request a reset link so I can regain access.",
+      "acceptanceCriteria": [
+        "POST /auth/forgot-password/:tenantSlug endpoint",
+        "Request body: { email }",
+        "Always returns 200 (don't reveal if email exists)",
+        "If email exists: generates reset token, stores hash in DB, sends email",
+        "Reset token expires in 1 hour",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Implement password reset endpoint",
+      "description": "As a user, I want to reset my password using the link I received.",
+      "acceptanceCriteria": [
+        "POST /auth/reset-password endpoint",
+        "Request body: { token, newPassword }",
+        "Validates token exists and not expired",
+        "Updates password hash",
+        "Invalidates all existing sessions for user",
+        "Clears reset token",
+        "Returns 200 with success message",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Implement admin invite user endpoint",
+      "description": "As a tenant admin, I want to invite users by email so they can join my tenant.",
+      "acceptanceCriteria": [
+        "POST /auth/invite endpoint (requires admin role)",
+        "Request body: { email, name, role }",
+        "Creates user with emailVerified: false and no password",
+        "Generates invite token (different from verification token)",
+        "Sends invite email with link to set password",
+        "Returns 201 with invite info",
+        "Returns 409 if email already exists in tenant",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Implement accept invite endpoint",
+      "description": "As an invited user, I want to set my password and activate my account.",
+      "acceptanceCriteria": [
+        "POST /auth/accept-invite/:token endpoint",
+        "Request body: { password }",
+        "Validates invite token exists and not expired (7 days)",
+        "Sets password hash and emailVerified: true",
+        "Clears invite token",
+        "Creates session and returns token",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Implement email change with re-verification",
+      "description": "As a user, if I change my email, I must verify the new email before accessing resources.",
+      "acceptanceCriteria": [
+        "PUT /auth/email endpoint to change email (requires authentication)",
+        "Sets emailVerified: false and sends verification to new email",
+        "Old email receives notification of change",
+        "User cannot access protected resources until new email verified",
+        "Typecheck passes"
+      ],
+      "priority": 15,
       "passes": false,
       "notes": ""
     }

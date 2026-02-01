@@ -160,3 +160,17 @@ Thread: https://ampcode.com/threads/T-019c0238-deae-71ad-b017-f18d4e6d8a1e
   - Pre-existing typecheck errors in scripts/create-api-key.ts are unrelated to route changes
   - Response schemas should include error responses (401, 404, etc.) with statusCode, error, message properties
 ---
+
+## 2026-02-01 - US-001 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
+- Added sessions table to tenant database with columns: id, userId, token (unique), expiresAt, createdAt, updatedAt
+- Added indexes on token, userId, and expiresAt for fast lookups
+- Created Session TypeScript interface
+- Created initializeSessionSchema() function called during tenant initialization
+- Added generateSessionToken() function using 32 bytes + base64url encoding with desi_session_ prefix
+- Files changed: src/db/user-schema.ts
+- **Learnings for future iterations:**
+  - Sessions table uses INTEGER timestamps (strftime('%s', 'now')) for Unix epoch storage
+  - Session tokens use base64url encoding (Buffer.from().toString("base64url")) for URL-safe tokens
+  - Foreign key with ON DELETE CASCADE ensures sessions are cleaned up when user is deleted
+---
