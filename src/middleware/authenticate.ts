@@ -2,13 +2,15 @@ import type { FastifyRequest, FastifyReply, preHandlerHookHandler } from "fastif
 import type { Database } from "bun:sqlite";
 import { validateApiKey, type ApiKeyInfo } from "../services/api-key";
 import { getAdminDatabase, type Tenant, type SuperAdmin, type AdminApiKey } from "../db/admin-schema";
-import { getTenantDbPath } from "../db/user-schema";
+import { getTenantDbPath, type Session } from "../db/user-schema";
 import { Database as SqliteDatabase } from "bun:sqlite";
 import type { User } from "../db/user-schema";
 import { verifyAdminApiKey } from "../services/admin-api-key";
 
 const KEY_PREFIX_LENGTH = 8;
 const ADMIN_KEY_PREFIX = "desi_sk_admin_";
+const SESSION_PREFIX = "desi_session_";
+const SESSION_EXTENSION_DAYS = 7;
 
 export interface AuthenticatedUser {
   id: string;
@@ -17,11 +19,14 @@ export interface AuthenticatedUser {
   role: "admin" | "member" | "viewer";
 }
 
+export type AuthType = "api_key" | "session";
+
 export interface AuthContext {
   tenant: Tenant;
   user: AuthenticatedUser;
-  apiKey: ApiKeyInfo;
+  apiKey: ApiKeyInfo | null;
   tenantDb: Database;
+  authType: AuthType;
 }
 
 function extractKeyPrefix(fullKey: string): string {
@@ -74,6 +79,68 @@ function getUserById(tenantDb: Database, userId: string): User | null {
   return result ?? null;
 }
 
+interface SessionRow {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: number;
+  createdAt: number;
+  updatedAt: number;
+  tenantId: string;
+}
+
+interface SessionLookupResult {
+  session: SessionRow;
+  tenant: Tenant;
+  tenantDb: Database;
+}
+
+function lookupSessionToken(token: string): SessionLookupResult | null {
+  const adminDb = getAdminDatabase();
+  const tenantsStmt = adminDb.prepare(`SELECT id, name, slug, status, plan, quotas, createdAt, updatedAt FROM tenants WHERE status = 'active'`);
+  const tenants = tenantsStmt.all() as Tenant[];
+  const now = Math.floor(Date.now() / 1000);
+
+  for (const tenant of tenants) {
+    try {
+      const tenantDbPath = getTenantDbPath(tenant.id);
+      const tenantDb = new SqliteDatabase(tenantDbPath);
+      
+      const sessionStmt = tenantDb.prepare(`
+        SELECT id, userId, token, expiresAt, createdAt, updatedAt
+        FROM sessions
+        WHERE token = ? AND expiresAt > ?
+      `);
+      const session = sessionStmt.get(token, now) as SessionRow | undefined;
+      
+      if (session) {
+        return {
+          session: { ...session, tenantId: tenant.id },
+          tenant,
+          tenantDb,
+        };
+      }
+      tenantDb.close();
+    } catch {
+      // Tenant DB doesn't exist or can't be opened, continue
+    }
+  }
+  
+  return null;
+}
+
+function extendSessionExpiry(tenantDb: Database, sessionId: string): void {
+  const now = Math.floor(Date.now() / 1000);
+  const newExpiry = now + SESSION_EXTENSION_DAYS * 24 * 60 * 60;
+  
+  const stmt = tenantDb.prepare(`
+    UPDATE sessions
+    SET expiresAt = ?, updatedAt = ?
+    WHERE id = ?
+  `);
+  stmt.run(newExpiry, now, sessionId);
+}
+
 export const authenticate: preHandlerHookHandler = async (
   request: FastifyRequest,
   reply: FastifyReply
@@ -92,21 +159,67 @@ export const authenticate: preHandlerHookHandler = async (
     return reply.status(401).send({
       statusCode: 401,
       error: "Unauthorized",
-      message: "Invalid Authorization header format. Expected: Bearer <api_key>",
+      message: "Invalid Authorization header format. Expected: Bearer <token>",
     });
   }
   
-  const apiKey = authHeader.slice(7).trim();
+  const token = authHeader.slice(7).trim();
   
-  if (!apiKey.startsWith("desi_sk_")) {
+  // Detect token type by prefix: desi_session_* = session, desi_sk_* = API key
+  if (token.startsWith(SESSION_PREFIX)) {
+    // Session-based authentication (US-009)
+    const lookupResult = lookupSessionToken(token);
+    
+    if (!lookupResult) {
+      return reply.status(401).send({
+        statusCode: 401,
+        error: "Unauthorized",
+        message: "Invalid or expired session",
+      });
+    }
+    
+    const { session, tenant, tenantDb } = lookupResult;
+    
+    // Get user for this session
+    const user = getUserById(tenantDb, session.userId);
+    
+    if (!user) {
+      tenantDb.close();
+      return reply.status(401).send({
+        statusCode: 401,
+        error: "Unauthorized",
+        message: "User not found",
+      });
+    }
+    
+    // Extend session expiry (sliding window)
+    extendSessionExpiry(tenantDb, session.id);
+    
+    (request as FastifyRequest & { auth: AuthContext }).auth = {
+      tenant,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      apiKey: null,
+      tenantDb,
+      authType: "session",
+    };
+    return;
+  }
+  
+  // API key authentication
+  if (!token.startsWith("desi_sk_")) {
     return reply.status(401).send({
       statusCode: 401,
       error: "Unauthorized",
-      message: "Invalid API key format",
+      message: "Invalid token format",
     });
   }
   
-  const keyPrefix = extractKeyPrefix(apiKey);
+  const keyPrefix = extractKeyPrefix(token);
   
   const tenant = getTenantByApiKeyPrefix(keyPrefix);
   
@@ -139,7 +252,7 @@ export const authenticate: preHandlerHookHandler = async (
     });
   }
   
-  const validationResult = await validateApiKey(tenantDb, apiKey);
+  const validationResult = await validateApiKey(tenantDb, token);
   
   if (!validationResult.valid) {
     tenantDb.close();
@@ -171,6 +284,7 @@ export const authenticate: preHandlerHookHandler = async (
     },
     apiKey: validationResult.apiKey,
     tenantDb,
+    authType: "api_key",
   };
 };
 
