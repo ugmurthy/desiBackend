@@ -503,6 +503,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Admin"],
         summary: "Delete or suspend tenant",
         description: "Deletes or suspends a tenant. Use action=delete for permanent deletion or action=suspend (or omit) to suspend. Requires admin scope.",
+        consumes: ["application/json"],
         params: {
           type: "object",
           properties: {

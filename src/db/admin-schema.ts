@@ -2,6 +2,8 @@ import { Database } from "bun:sqlite";
 import { join } from "path";
 import { homedir } from "os";
 import { mkdirSync, existsSync } from "fs";
+import { runMigrations } from "./migrations";
+import { adminMigrations } from "./migrations/admin";
 
 export interface Tenant {
   id: string;
@@ -143,6 +145,9 @@ export function initializeAdminDatabase(): Database {
     CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
     CREATE INDEX IF NOT EXISTS idx_agents_active ON agents(active);
   `);
+
+  // Run any pending migrations
+  runMigrations(adminDb, adminMigrations, "admin.db");
 
   return adminDb;
 }

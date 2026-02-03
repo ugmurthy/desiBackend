@@ -1,0 +1,5502 @@
+openapi: 3.0.3
+info:
+  title: desiBackend API
+  description: API for desiAgent backend services - multi-tenant agent
+    orchestration platform
+  version: 2.0.0
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas: {}
+paths:
+  /api/v2/health:
+    get:
+      summary: Health check
+      tags:
+        - Health
+      description: Returns the current health status, version, and uptime of the service
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  version:
+                    type: string
+                  uptime:
+                    type: number
+                example:
+                  status: ok
+                  version: 1.0.0
+                  uptime: 3600
+  /api/v2/health/ready:
+    get:
+      summary: Readiness check
+      tags:
+        - Health
+      description: Checks if the service is ready to accept requests by verifying
+        database connectivity
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  checks:
+                    type: object
+                    properties:
+                      database:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                          error:
+                            type: string
+                example:
+                  status: ready
+                  checks:
+                    database:
+                      status: connected
+  /api/v2/auth/me:
+    get:
+      summary: Get current user info
+      tags:
+        - Authentication
+      description: Returns the authenticated user's profile and tenant information
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: usr_abc123
+                  email:
+                    type: string
+                    format: email
+                    example: john@example.com
+                  name:
+                    type: string
+                    example: John Doe
+                  role:
+                    type: string
+                    example: admin
+                  tenant:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: ten_xyz789
+                      name:
+                        type: string
+                        example: Acme Corp
+                      slug:
+                        type: string
+                        example: acme-corp
+                      plan:
+                        type: string
+                        example: pro
+                example:
+                  id: usr_abc123
+                  email: john@example.com
+                  name: John Doe
+                  role: admin
+                  tenant:
+                    id: ten_xyz789
+                    name: Acme Corp
+                    slug: acme-corp
+                    plan: pro
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Authentication required
+  /api/v2/auth/api-keys:
+    get:
+      summary: List API keys
+      tags:
+        - Authentication
+      description: Returns all API keys for the authenticated user
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiKeys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: key_abc123
+                        name:
+                          type: string
+                          example: Production API Key
+                        keyPrefix:
+                          type: string
+                          example: sk_live_abc
+                        scopes:
+                          type: array
+                          items:
+                            type: string
+                            enum:
+                              - read
+                              - write
+                              - admin
+                          example:
+                            - read
+                            - write
+                        expiresAt:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          example: 2025-12-31T23:59:59Z
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: 2024-01-15T10:30:00Z
+                example:
+                  apiKeys:
+                    - id: key_abc123
+                      name: Production API Key
+                      keyPrefix: sk_live_abc
+                      scopes:
+                        - read
+                        - write
+                      expiresAt: 2025-12-31T23:59:59Z
+                      createdAt: 2024-01-15T10:30:00Z
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Authentication required
+    post:
+      summary: Create API key
+      tags:
+        - Authentication
+      description: Creates a new API key for the authenticated user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: Production API Key
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - read
+                      - write
+                      - admin
+                  example:
+                    - read
+                    - write
+                expiresAt:
+                  type: string
+                  format: date-time
+                  example: 2025-12-31T23:59:59Z
+              example:
+                name: Production API Key
+                scopes:
+                  - read
+                  - write
+                expiresAt: 2025-12-31T23:59:59Z
+        required: true
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: key_abc123
+                  name:
+                    type: string
+                    example: Production API Key
+                  keyPrefix:
+                    type: string
+                    example: sk_live_abc
+                  key:
+                    type: string
+                    example: sk_live_abc123def456ghi789
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                      enum:
+                        - read
+                        - write
+                        - admin
+                    example:
+                      - read
+                      - write
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: 2025-12-31T23:59:59Z
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-15T10:30:00Z
+                example:
+                  id: key_abc123
+                  name: Production API Key
+                  keyPrefix: sk_live_abc
+                  key: sk_live_abc123def456ghi789
+                  scopes:
+                    - read
+                    - write
+                  expiresAt: 2025-12-31T23:59:59Z
+                  createdAt: 2024-01-15T10:30:00Z
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: body/name must NOT have fewer than 1 characters
+                example:
+                  statusCode: 400
+                  error: Bad Request
+                  message: body/name must NOT have fewer than 1 characters
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Authentication required
+  /api/v2/auth/api-keys/{id}:
+    delete:
+      summary: Revoke API key
+      tags:
+        - Authentication
+      description: Revokes an existing API key by ID
+      parameters:
+        - schema:
+            type: string
+            example: key_abc123
+          in: path
+          name: id
+          required: true
+      responses:
+        "204":
+          description: API key successfully revoked
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Authentication required
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: API key not found
+                example:
+                  statusCode: 404
+                  error: Not Found
+                  message: API key not found
+  /api/v2/auth/register/{tenantSlug}:
+    post:
+      summary: Register new user
+      tags:
+        - Authentication
+      description: Register a new user with email/password for an existing tenant.
+        Sends verification email.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  minLength: 8
+                  example: securepassword123
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: John Doe
+        required: true
+      parameters:
+        - schema:
+            type: string
+            example: acme-corp
+          in: path
+          name: tenantSlug
+          required: true
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Verification email sent
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Invalid email format
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Tenant not found
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 409
+                  error:
+                    type: string
+                    example: Conflict
+                  message:
+                    type: string
+                    example: Email already registered
+  /api/v2/auth/verify-email/{token}:
+    get:
+      summary: Verify email
+      tags:
+        - Authentication
+      description: Verify user email using the token from verification email. Token
+        expires after 24 hours.
+      parameters:
+        - schema:
+            type: string
+            example: abc123...
+          in: path
+          name: token
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Email verified successfully
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Invalid or expired token
+  /api/v2/auth/resend-verification/{tenantSlug}:
+    post:
+      summary: Resend verification email
+      tags:
+        - Authentication
+      description: Resends the email verification link. Always returns 200 to prevent
+        email enumeration.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+        required: true
+      parameters:
+        - schema:
+            type: string
+            example: acme-corp
+          in: path
+          name: tenantSlug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: If the email exists and is unverified, a verification link has been
+                      sent
+  /api/v2/auth/login/{tenantSlug}:
+    post:
+      summary: Login with email/password
+      tags:
+        - Authentication
+      description: Authenticate with email and password. Returns session token on success.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  example: securepassword123
+        required: true
+      parameters:
+        - schema:
+            type: string
+            example: acme-corp
+          in: path
+          name: tenantSlug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: desi_session_abc123...
+                  expiresAt:
+                    type: number
+                    example: 1706745600
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 550e8400-e29b-41d4-a716-446655440000
+                      email:
+                        type: string
+                        example: john@example.com
+                      name:
+                        type: string
+                        example: John Doe
+                      role:
+                        type: string
+                        example: member
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid credentials
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 403
+                  error:
+                    type: string
+                    example: Forbidden
+                  message:
+                    type: string
+                    example: Email not verified. Please check your email for verification link.
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Tenant not found
+  /api/v2/auth/logout:
+    post:
+      summary: Logout
+      tags:
+        - Authentication
+      description: Invalidates the current session token.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Successfully logged out
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing session token
+  /api/v2/auth/forgot-password/{tenantSlug}:
+    post:
+      summary: Request password reset
+      tags:
+        - Authentication
+      description: Sends a password reset email if the email exists. Always returns
+        200 to prevent email enumeration.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+        required: true
+      parameters:
+        - schema:
+            type: string
+            example: acme-corp
+          in: path
+          name: tenantSlug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: If the email exists, a password reset link has been sent
+  /api/v2/auth/reset-password:
+    post:
+      summary: Reset password
+      tags:
+        - Authentication
+      description: Reset password using the token received via email. Invalidates all
+        existing sessions.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                  example: abc123...
+                newPassword:
+                  type: string
+                  minLength: 8
+                  example: newSecurePassword123
+        required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Password reset successfully
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Invalid or expired reset token
+  /api/v2/auth/invite:
+    post:
+      summary: Invite user (admin only)
+      tags:
+        - Authentication
+      description: Invite a new user by email. Creates user with no password and sends
+        invite email.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - name
+                - role
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: newuser@example.com
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: Jane Doe
+                role:
+                  type: string
+                  enum:
+                    - admin
+                    - member
+                    - viewer
+                  example: member
+        required: true
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Invitation sent
+                  userId:
+                    type: string
+                    example: user_abc123
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Invalid email format
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 403
+                  error:
+                    type: string
+                    example: Forbidden
+                  message:
+                    type: string
+                    example: Admin role required
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 409
+                  error:
+                    type: string
+                    example: Conflict
+                  message:
+                    type: string
+                    example: Email already exists in tenant
+  /api/v2/auth/accept-invite/{token}:
+    post:
+      summary: Accept invite
+      tags:
+        - Authentication
+      description: Accept an invitation by setting a password. Creates a session on success.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  minLength: 8
+                  example: securepassword123
+        required: true
+      parameters:
+        - schema:
+            type: string
+            example: abc123...
+          in: path
+          name: token
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: desi_session_abc123...
+                  expiresAt:
+                    type: number
+                    example: 1706745600
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: user_abc123
+                      email:
+                        type: string
+                        example: user@example.com
+                      name:
+                        type: string
+                        example: John Doe
+                      role:
+                        type: string
+                        example: member
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Invalid or expired invite token
+  /api/v2/users:
+    get:
+      summary: List all users
+      tags:
+        - Users
+      description: Retrieves a list of all users in the tenant. Requires admin role.
+      responses:
+        "200":
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                description: List of users retrieved successfully
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440000
+                        email:
+                          type: string
+                          example: user@example.com
+                        name:
+                          type: string
+                          example: John Doe
+                        role:
+                          type: string
+                          enum:
+                            - admin
+                            - member
+                            - viewer
+                          example: member
+                        createdAt:
+                          type: string
+                          example: 2024-01-15T10:30:00.000Z
+                        updatedAt:
+                          type: string
+                          example: 2024-01-15T10:30:00.000Z
+                example:
+                  users:
+                    - id: 550e8400-e29b-41d4-a716-446655440000
+                      email: admin@example.com
+                      name: Admin User
+                      role: admin
+                      createdAt: 2024-01-15T10:30:00.000Z
+                      updatedAt: 2024-01-15T10:30:00.000Z
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - Invalid or missing authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                description: Internal server error
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 500
+                  error:
+                    type: string
+                    example: Internal Server Error
+                  message:
+                    type: string
+                    example: An unexpected error occurred
+  /api/v2/users/{id}:
+    get:
+      summary: Get user by ID
+      tags:
+        - Users
+      description: Retrieves a specific user by their unique identifier.
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+          description: User ID
+      responses:
+        "200":
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                description: User retrieved successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  email:
+                    type: string
+                    example: user@example.com
+                  name:
+                    type: string
+                    example: John Doe
+                  role:
+                    type: string
+                    enum:
+                      - admin
+                      - member
+                      - viewer
+                    example: member
+                  createdAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                  updatedAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                example:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  email: user@example.com
+                  name: John Doe
+                  role: member
+                  createdAt: 2024-01-15T10:30:00.000Z
+                  updatedAt: 2024-01-15T10:30:00.000Z
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - Invalid or missing authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                description: User not found
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: User not found
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                description: Internal server error
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 500
+                  error:
+                    type: string
+                    example: Internal Server Error
+                  message:
+                    type: string
+                    example: An unexpected error occurred
+    patch:
+      summary: Update user role
+      tags:
+        - Users
+      description: Updates the role of a specific user. Requires admin role.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum:
+                    - admin
+                    - member
+                    - viewer
+                  description: New role for the user
+                  example: admin
+              example:
+                role: admin
+        required: true
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+          description: User ID
+      responses:
+        "200":
+          description: User role updated successfully
+          content:
+            application/json:
+              schema:
+                description: User role updated successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  email:
+                    type: string
+                    example: user@example.com
+                  name:
+                    type: string
+                    example: John Doe
+                  role:
+                    type: string
+                    enum:
+                      - admin
+                      - member
+                      - viewer
+                    example: admin
+                  createdAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                  updatedAt:
+                    type: string
+                    example: 2024-01-16T14:20:00.000Z
+                example:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  email: user@example.com
+                  name: John Doe
+                  role: admin
+                  createdAt: 2024-01-15T10:30:00.000Z
+                  updatedAt: 2024-01-16T14:20:00.000Z
+        "400":
+          description: Bad request - Invalid input
+          content:
+            application/json:
+              schema:
+                description: Bad request - Invalid input
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Invalid role value
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - Invalid or missing authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                description: User not found
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: User not found
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                description: Internal server error
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 500
+                  error:
+                    type: string
+                    example: Internal Server Error
+                  message:
+                    type: string
+                    example: Failed to update user
+    delete:
+      summary: Delete user
+      tags:
+        - Users
+      description: Deletes a specific user from the tenant. Requires admin role.
+        Cannot delete your own account.
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+          description: User ID
+      responses:
+        "204":
+          description: User deleted successfully
+        "400":
+          description: Bad request - Cannot delete own account
+          content:
+            application/json:
+              schema:
+                description: Bad request - Cannot delete own account
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Cannot delete your own user account
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - Invalid or missing authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                description: User not found
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: User not found
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                description: Internal server error
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 500
+                  error:
+                    type: string
+                    example: Internal Server Error
+                  message:
+                    type: string
+                    example: Failed to delete user
+  /api/v2/users/invite:
+    post:
+      summary: Invite new user
+      tags:
+        - Users
+      description: Creates a new user invitation in the tenant. Requires admin role.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email address of the user to invite
+                  example: newuser@example.com
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: Full name of the user
+                  example: Jane Smith
+                role:
+                  type: string
+                  enum:
+                    - admin
+                    - member
+                    - viewer
+                  description: Role to assign to the user (defaults to member)
+                  example: member
+              example:
+                email: newuser@example.com
+                name: Jane Smith
+                role: member
+        required: true
+      responses:
+        "201":
+          description: User invited successfully
+          content:
+            application/json:
+              schema:
+                description: User invited successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440001
+                  email:
+                    type: string
+                    example: newuser@example.com
+                  name:
+                    type: string
+                    example: Jane Smith
+                  role:
+                    type: string
+                    enum:
+                      - admin
+                      - member
+                      - viewer
+                    example: member
+                  createdAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                  updatedAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                example:
+                  id: 550e8400-e29b-41d4-a716-446655440001
+                  email: newuser@example.com
+                  name: Jane Smith
+                  role: member
+                  createdAt: 2024-01-15T10:30:00.000Z
+                  updatedAt: 2024-01-15T10:30:00.000Z
+        "400":
+          description: Bad request - Invalid input
+          content:
+            application/json:
+              schema:
+                description: Bad request - Invalid input
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Invalid email format
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - Invalid or missing authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Authentication required
+        "409":
+          description: Conflict - User already exists
+          content:
+            application/json:
+              schema:
+                description: Conflict - User already exists
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 409
+                  error:
+                    type: string
+                    example: Conflict
+                  message:
+                    type: string
+                    example: User with this email already exists
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                description: Internal server error
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 500
+                  error:
+                    type: string
+                    example: Internal Server Error
+                  message:
+                    type: string
+                    example: An unexpected error occurred
+  /api/v2/agents:
+    post:
+      summary: Create a new agent
+      tags:
+        - Agents
+      description: Creates a new agent with the specified configuration. The agent
+        name must be unique within the tenant.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - version
+                - systemPrompt
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: translator
+                version:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  example: "1.0"
+                systemPrompt:
+                  type: string
+                  minLength: 1
+                  example: You are a translator...
+                params:
+                  type: object
+                  properties:
+                    provider:
+                      type: string
+                      enum:
+                        - openai
+                        - openrouter
+                        - ollama
+                      example: openai
+                    model:
+                      type: string
+                      example: gpt-4
+                    metadata:
+                      type: object
+                      additionalProperties: true
+                      example: {}
+        required: true
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: translator
+                  version:
+                    type: string
+                    example: "1.0"
+                  description:
+                    type: string
+                    nullable: true
+                    example: Translates text between languages
+                  systemPrompt:
+                    type: string
+                    example: You are a translator...
+                  provider:
+                    type: string
+                    example: openai
+                  model:
+                    type: string
+                    example: gpt-4
+                  isActive:
+                    type: boolean
+                    example: true
+                  metadata:
+                    type: object
+                    additionalProperties: true
+                    example: {}
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 400
+                  error: Bad Request
+                  message: Validation failed
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Invalid or missing authentication
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 409
+                  error: Conflict
+                  message: Agent with name 'translator' already exists
+    get:
+      summary: List agents
+      tags:
+        - Agents
+      description: Retrieves a paginated list of agents with optional filtering by
+        status and name.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - active
+              - inactive
+            example: active
+          in: query
+          name: status
+          required: false
+        - schema:
+            type: string
+            example: translator
+          in: query
+          name: name
+          required: false
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          example: 550e8400-e29b-41d4-a716-446655440000
+                        name:
+                          type: string
+                          example: translator
+                        version:
+                          type: string
+                          example: "1.0"
+                        description:
+                          type: string
+                          nullable: true
+                          example: Translates text between languages
+                        systemPrompt:
+                          type: string
+                          example: You are a translator...
+                        provider:
+                          type: string
+                          example: openai
+                        model:
+                          type: string
+                          example: gpt-4
+                        isActive:
+                          type: boolean
+                          example: true
+                        metadata:
+                          type: object
+                          additionalProperties: true
+                          example: {}
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: 2024-01-01T00:00:00Z
+                        updatedAt:
+                          type: string
+                          format: date-time
+                          example: 2024-01-01T00:00:00Z
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 50
+                      limit:
+                        type: integer
+                        example: 20
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: true
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Invalid or missing authentication
+  /api/v2/agents/{id}:
+    get:
+      summary: Get agent by ID
+      tags:
+        - Agents
+      description: Retrieves a specific agent by its unique identifier.
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: translator
+                  version:
+                    type: string
+                    example: "1.0"
+                  description:
+                    type: string
+                    nullable: true
+                    example: Translates text between languages
+                  systemPrompt:
+                    type: string
+                    example: You are a translator...
+                  provider:
+                    type: string
+                    example: openai
+                  model:
+                    type: string
+                    example: gpt-4
+                  isActive:
+                    type: boolean
+                    example: true
+                  metadata:
+                    type: object
+                    additionalProperties: true
+                    example: {}
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Invalid or missing authentication
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 404
+                  error: Not Found
+                  message: Agent not found
+    patch:
+      summary: Update agent
+      tags:
+        - Agents
+      description: Updates an existing agent with the provided fields. Only specified
+        fields will be updated.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: translator-v2
+                version:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  example: "2.0"
+                systemPrompt:
+                  type: string
+                  minLength: 1
+                  example: You are an improved translator...
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  example:
+                    language: en
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: translator
+                  version:
+                    type: string
+                    example: "1.0"
+                  description:
+                    type: string
+                    nullable: true
+                    example: Translates text between languages
+                  systemPrompt:
+                    type: string
+                    example: You are a translator...
+                  provider:
+                    type: string
+                    example: openai
+                  model:
+                    type: string
+                    example: gpt-4
+                  isActive:
+                    type: boolean
+                    example: true
+                  metadata:
+                    type: object
+                    additionalProperties: true
+                    example: {}
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 400
+                  error: Bad Request
+                  message: Validation failed
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Invalid or missing authentication
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 404
+                  error: Not Found
+                  message: Agent not found
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 409
+                  error: Conflict
+                  message: Agent with name 'translator-v2' already exists
+    delete:
+      summary: Delete agent
+      tags:
+        - Agents
+      description: Deletes an agent by its ID. Active agents cannot be deleted.
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "204":
+          description: Agent successfully deleted
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 400
+                  error: Bad Request
+                  message: Cannot delete active agent
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Invalid or missing authentication
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 404
+                  error: Not Found
+                  message: Agent not found
+  /api/v2/agents/{id}/activate:
+    post:
+      summary: Activate agent
+      tags:
+        - Agents
+      description: Activates an agent, making it the active version for its name. This
+        will deactivate any previously active agent with the same name.
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: translator
+                  version:
+                    type: string
+                    example: "1.0"
+                  description:
+                    type: string
+                    nullable: true
+                    example: Translates text between languages
+                  systemPrompt:
+                    type: string
+                    example: You are a translator...
+                  provider:
+                    type: string
+                    example: openai
+                  model:
+                    type: string
+                    example: gpt-4
+                  isActive:
+                    type: boolean
+                    example: true
+                  metadata:
+                    type: object
+                    additionalProperties: true
+                    example: {}
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Invalid or missing authentication
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 404
+                  error: Not Found
+                  message: Agent not found
+  /api/v2/agents/resolve/{name}:
+    get:
+      summary: Resolve agent by name
+      tags:
+        - Agents
+      description: Finds the currently active agent with the specified name.
+      parameters:
+        - schema:
+            type: string
+            example: translator
+          in: path
+          name: name
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  name:
+                    type: string
+                    example: translator
+                  version:
+                    type: string
+                    example: "1.0"
+                  description:
+                    type: string
+                    nullable: true
+                    example: Translates text between languages
+                  systemPrompt:
+                    type: string
+                    example: You are a translator...
+                  provider:
+                    type: string
+                    example: openai
+                  model:
+                    type: string
+                    example: gpt-4
+                  isActive:
+                    type: boolean
+                    example: true
+                  metadata:
+                    type: object
+                    additionalProperties: true
+                    example: {}
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Invalid or missing authentication
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 404
+                  error: Not Found
+                  message: No active agent found with name 'translator'
+  /api/v2/dags:
+    post:
+      summary: Create DAG from goal
+      tags:
+        - DAGs
+      description: Creates a new DAG (Directed Acyclic Graph) from a goal text using
+        an AI agent. The DAG represents a workflow that can be executed to
+        achieve the specified goal.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - goalText
+                - agentName
+              properties:
+                goalText:
+                  type: string
+                  minLength: 1
+                  example: Analyze quarterly sales data and generate insights
+                agentName:
+                  type: string
+                  minLength: 1
+                  example: data-analyst
+                provider:
+                  type: string
+                  enum:
+                    - openai
+                    - openrouter
+                    - ollama
+                  example: openai
+                model:
+                  type: string
+                  example: gpt-4
+                temperature:
+                  type: number
+                  minimum: 0
+                  maximum: 2
+                  example: 0.7
+                maxTokens:
+                  type: integer
+                  minimum: 1
+                  example: 4096
+                seed:
+                  type: integer
+                  example: 42
+                cronSchedule:
+                  type: string
+                  example: 0 9 * * 1
+                scheduleActive:
+                  type: boolean
+                  example: true
+                timezone:
+                  type: string
+                  example: America/New_York
+        required: true
+      responses:
+        "201":
+          description: DAG created successfully
+          content:
+            application/json:
+              schema:
+                description: DAG created successfully
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  dagId:
+                    type: string
+                    example: dag_EbvukFKKz6P4CveL-_sj_
+                  result:
+                    type: object
+                  usage:
+                    type: object
+                  generationStats:
+                    type: object
+                  attempts:
+                    type: integer
+                    example: 1
+        "202":
+          description: Clarification required from user
+          content:
+            application/json:
+              schema:
+                description: Clarification required from user
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: clarification_required
+                  clarificationQuery:
+                    type: string
+                    example: Please specify the date range for the analysis
+                  result:
+                    type: object
+                  usage:
+                    type: object
+                  generationStats:
+                    type: object
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                description: Invalid request body
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "404":
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                description: Agent not found
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+    get:
+      summary: List DAGs with filters
+      tags:
+        - DAGs
+      description: Retrieves a paginated list of DAGs with optional filtering by
+        status and creation date range.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - pending
+              - active
+              - paused
+              - completed
+              - failed
+              - cancelled
+            example: active
+          in: query
+          name: status
+          required: false
+        - schema:
+            type: string
+            format: date-time
+            example: 2024-01-01T00:00:00Z
+          in: query
+          name: createdAfter
+          required: false
+        - schema:
+            type: string
+            format: date-time
+            example: 2024-12-31T23:59:59Z
+          in: query
+          name: createdBefore
+          required: false
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: List of DAGs retrieved successfully
+          content:
+            application/json:
+              schema:
+                description: List of DAGs retrieved successfully
+                type: object
+                properties:
+                  dags:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: dag_EbvukFKKz6P4CveL-_sj_
+                        objective:
+                          type: string
+                          example: Analyze sales data
+                        status:
+                          type: string
+                          example: active
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: 2024-01-01T00:00:00Z
+                        updatedAt:
+                          type: string
+                          format: date-time
+                          example: 2024-01-01T00:00:00Z
+                        metadata:
+                          type: object
+                          example: {}
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 50
+                      limit:
+                        type: integer
+                        example: 20
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: true
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+  /api/v2/dags/scheduled:
+    get:
+      summary: List scheduled DAGs
+      tags:
+        - DAGs
+      description: Retrieves all DAGs that have a cron schedule configured, along with
+        their scheduling details.
+      responses:
+        "200":
+          description: List of scheduled DAGs retrieved successfully
+          content:
+            application/json:
+              schema:
+                description: List of scheduled DAGs retrieved successfully
+                type: object
+                properties:
+                  dags:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: dag_EbvukFKKz6P4CveL-_sj_
+                        dagTitle:
+                          type: string
+                          example: Weekly Sales Report
+                        cronSchedule:
+                          type: string
+                          example: 0 9 * * 1
+                        scheduleDescription:
+                          type: string
+                          example: Every Monday at 9:00 AM
+                        scheduleActive:
+                          type: boolean
+                          example: true
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+  /api/v2/dags/{id}:
+    get:
+      summary: Get DAG by ID
+      tags:
+        - DAGs
+      description: Retrieves a specific DAG by its unique identifier, including all
+        nodes, edges, and metadata.
+      parameters:
+        - schema:
+            type: string
+            example: dag_EbvukFKKz6P4CveL-_sj_
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: DAG retrieved successfully
+          content:
+            application/json:
+              schema:
+                description: DAG retrieved successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: dag_EbvukFKKz6P4CveL-_sj_
+                  objective:
+                    type: string
+                    example: Analyze sales data
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                    example: []
+                  edges:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                    example: []
+                  status:
+                    type: string
+                    example: active
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  metadata:
+                    type: object
+                    additionalProperties: true
+                    example: {}
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "404":
+          description: DAG not found
+          content:
+            application/json:
+              schema:
+                description: DAG not found
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+    patch:
+      summary: Update DAG
+      tags:
+        - DAGs
+      description: Updates a DAG's properties such as status, schedule, or title. Only
+        the provided fields will be updated.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: paused
+                cronSchedule:
+                  type:
+                    - string
+                    - "null"
+                  example: 0 9 * * 1
+                scheduleActive:
+                  type: boolean
+                  example: false
+                timezone:
+                  type: string
+                  example: America/New_York
+                dagTitle:
+                  type: string
+                  example: Updated Sales Analysis
+      parameters:
+        - schema:
+            type: string
+            example: dag_EbvukFKKz6P4CveL-_sj_
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: DAG updated successfully
+          content:
+            application/json:
+              schema:
+                description: DAG updated successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: dag_EbvukFKKz6P4CveL-_sj_
+                  objective:
+                    type: string
+                    example: Analyze sales data
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                    example: []
+                  edges:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                    example: []
+                  status:
+                    type: string
+                    example: active
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  metadata:
+                    type: object
+                    additionalProperties: true
+                    example: {}
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                description: Invalid request body
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "404":
+          description: DAG not found
+          content:
+            application/json:
+              schema:
+                description: DAG not found
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+    delete:
+      summary: Delete DAG
+      tags:
+        - DAGs
+      description: Safely deletes a DAG by its ID. This operation is idempotent.
+      parameters:
+        - schema:
+            type: string
+            example: dag_EbvukFKKz6P4CveL-_sj_
+          in: path
+          name: id
+          required: true
+      responses:
+        "204":
+          description: DAG deleted successfully
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                description: Invalid request
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "404":
+          description: DAG not found
+          content:
+            application/json:
+              schema:
+                description: DAG not found
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+  /api/v2/dags/{id}/execute:
+    post:
+      summary: Execute a DAG
+      tags:
+        - DAGs
+      description: Triggers the execution of an existing DAG. The execution runs
+        asynchronously and returns immediately with an execution ID.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  enum:
+                    - openai
+                    - openrouter
+                    - ollama
+                  example: openai
+                model:
+                  type: string
+                  example: gpt-4
+      parameters:
+        - schema:
+            type: string
+            example: dag_EbvukFKKz6P4CveL-_sj_
+          in: path
+          name: id
+          required: true
+      responses:
+        "202":
+          description: DAG execution started
+          content:
+            application/json:
+              schema:
+                description: DAG execution started
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: exec_EbvukFKKz6P4CveL-_sj_
+                  status:
+                    type: string
+                    example: pending
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "404":
+          description: DAG not found
+          content:
+            application/json:
+              schema:
+                description: DAG not found
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+  /api/v2/dags/execute-definition:
+    post:
+      summary: Execute from definition
+      tags:
+        - DAGs
+      description: Executes a DAG directly from a provided definition without saving
+        it first. Useful for testing or one-off executions.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - definition
+                - originalGoalText
+              properties:
+                definition:
+                  type: object
+                  example:
+                    nodes:
+                      - id: node1
+                        type: task
+                        config: {}
+                    edges: []
+                originalGoalText:
+                  type: string
+                  minLength: 1
+                  example: Analyze sales data for Q4
+        required: true
+      responses:
+        "202":
+          description: DAG execution from definition started
+          content:
+            application/json:
+              schema:
+                description: DAG execution from definition started
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: dag_EbvukFKKz6P4CveL-_sj_
+                  status:
+                    type: string
+                    example: pending
+        "400":
+          description: Invalid definition or request body
+          content:
+            application/json:
+              schema:
+                description: Invalid definition or request body
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+  /api/v2/dags/experiments:
+    post:
+      summary: Run experiments
+      tags:
+        - DAGs
+      description: Runs multiple DAG generation experiments with different model and
+        temperature combinations to compare results.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - goalText
+                - agentName
+                - provider
+                - models
+                - temperatures
+              properties:
+                goalText:
+                  type: string
+                  minLength: 1
+                  example: Analyze quarterly sales data
+                agentName:
+                  type: string
+                  minLength: 1
+                  example: data-analyst
+                provider:
+                  type: string
+                  enum:
+                    - openai
+                    - openrouter
+                    - ollama
+                  example: openai
+                models:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                  example:
+                    - gpt-4
+                    - gpt-3.5-turbo
+                temperatures:
+                  type: array
+                  items:
+                    type: number
+                    minimum: 0
+                    maximum: 2
+                  minItems: 1
+                  example:
+                    - 0.3
+                    - 0.7
+                    - 1
+                seed:
+                  type: integer
+                  example: 42
+        required: true
+      responses:
+        "202":
+          description: Experiments started
+          content:
+            application/json:
+              schema:
+                description: Experiments started
+                type: object
+                properties:
+                  experimentId:
+                    type: string
+                    example: dag_EbvukFKKz6P4CveL-_sj_
+                  totalRuns:
+                    type: integer
+                    example: 6
+                  status:
+                    type: string
+                    example: running
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                description: Invalid request body
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "401":
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                description: Unauthorized - missing or invalid authentication
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+        "404":
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                description: Agent not found
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Validation failed
+  /api/v2/executions:
+    get:
+      summary: List executions
+      tags:
+        - Executions
+      description: Retrieve a paginated list of executions with optional filters for
+        status and DAG ID.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - pending
+              - running
+              - waiting
+              - completed
+              - failed
+              - partial
+              - suspended
+            example: completed
+          in: query
+          name: status
+          required: false
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: query
+          name: dagId
+          required: false
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: List of executions with pagination
+          content:
+            application/json:
+              schema:
+                type: object
+                description: List of executions with pagination
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440000
+                        dagId:
+                          type: string
+                          example: 660e8400-e29b-41d4-a716-446655440001
+                        originalRequest:
+                          type: string
+                          example: Analyze data
+                        primaryIntent:
+                          type: string
+                          example: data_analysis
+                        status:
+                          type: string
+                          example: completed
+                        totalTasks:
+                          type: integer
+                          example: 5
+                        completedTasks:
+                          type: integer
+                          example: 5
+                        failedTasks:
+                          type: integer
+                          example: 0
+                        waitingTasks:
+                          type: integer
+                          example: 0
+                        startedAt:
+                          type: string
+                          format: date-time
+                          example: 2024-01-01T00:00:00Z
+                        completedAt:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          example: 2024-01-01T00:01:00Z
+                        durationMs:
+                          type: integer
+                          nullable: true
+                          example: 60000
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: 2024-01-01T00:00:00Z
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 10
+                      limit:
+                        type: integer
+                        example: 20
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: false
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+  /api/v2/executions/{id}:
+    get:
+      summary: Get execution by ID
+      tags:
+        - Executions
+      description: Retrieve detailed information about a specific execution by its
+        unique identifier.
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Execution details
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution details
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  dagId:
+                    type: string
+                    example: 660e8400-e29b-41d4-a716-446655440001
+                  originalRequest:
+                    type: string
+                    example: Analyze data
+                  primaryIntent:
+                    type: string
+                    example: data_analysis
+                  status:
+                    type: string
+                    example: completed
+                  totalTasks:
+                    type: integer
+                    example: 5
+                  completedTasks:
+                    type: integer
+                    example: 5
+                  failedTasks:
+                    type: integer
+                    example: 0
+                  waitingTasks:
+                    type: integer
+                    example: 0
+                  finalResult:
+                    type: object
+                    nullable: true
+                    example:
+                      summary: Analysis complete
+                  synthesisResult:
+                    type: string
+                    nullable: true
+                    example: Data analysis completed successfully
+                  suspendedReason:
+                    type: string
+                    nullable: true
+                    example: null
+                  suspendedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: null
+                  retryCount:
+                    type: integer
+                    example: 0
+                  totalUsage:
+                    type: object
+                    nullable: true
+                    example:
+                      tokens: 1500
+                  totalCostUsd:
+                    type: number
+                    nullable: true
+                    example: 0.015
+                  startedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  completedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: 2024-01-01T00:01:00Z
+                  durationMs:
+                    type: integer
+                    nullable: true
+                    example: 60000
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:01:00Z
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution not found
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Execution not found
+    delete:
+      summary: Delete execution
+      tags:
+        - Executions
+      description: Delete a specific execution by its unique identifier.
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "204":
+          description: Execution deleted successfully
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution not found
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Execution not found
+  /api/v2/executions/{id}/details:
+    get:
+      summary: Get execution with sub-steps
+      tags:
+        - Executions
+      description: Retrieve detailed information about a specific execution including
+        all its sub-steps.
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Execution details with sub-steps
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution details with sub-steps
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  dagId:
+                    type: string
+                    example: 660e8400-e29b-41d4-a716-446655440001
+                  originalRequest:
+                    type: string
+                    example: Analyze data
+                  primaryIntent:
+                    type: string
+                    example: data_analysis
+                  status:
+                    type: string
+                    example: completed
+                  totalTasks:
+                    type: integer
+                    example: 5
+                  completedTasks:
+                    type: integer
+                    example: 5
+                  failedTasks:
+                    type: integer
+                    example: 0
+                  waitingTasks:
+                    type: integer
+                    example: 0
+                  finalResult:
+                    type: object
+                    nullable: true
+                    example:
+                      summary: Analysis complete
+                  synthesisResult:
+                    type: string
+                    nullable: true
+                    example: Data analysis completed successfully
+                  suspendedReason:
+                    type: string
+                    nullable: true
+                    example: null
+                  suspendedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: null
+                  retryCount:
+                    type: integer
+                    example: 0
+                  totalUsage:
+                    type: object
+                    nullable: true
+                    example:
+                      tokens: 1500
+                  totalCostUsd:
+                    type: number
+                    nullable: true
+                    example: 0.015
+                  startedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  completedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: 2024-01-01T00:01:00Z
+                  durationMs:
+                    type: integer
+                    nullable: true
+                    example: 60000
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:00:00Z
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-01T00:01:00Z
+                  subSteps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: step-001
+                        name:
+                          type: string
+                          example: Fetch data
+                        status:
+                          type: string
+                          example: completed
+                        result:
+                          type: string
+                          example: ...
+                    example:
+                      - id: step-001
+                        name: Fetch data
+                        status: completed
+                        result: null
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution not found
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Execution not found
+  /api/v2/executions/{id}/sub-steps:
+    get:
+      summary: Get execution sub-steps
+      tags:
+        - Executions
+      description: Retrieve only the sub-steps for a specific execution.
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Sub-steps for the execution
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Sub-steps for the execution
+                properties:
+                  executionId:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  subSteps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: step-001
+                        name:
+                          type: string
+                          example: Fetch data
+                        status:
+                          type: string
+                          example: completed
+                        result:
+                          type: string
+                          example: ...
+                    example:
+                      - id: step-001
+                        name: Fetch data
+                        status: completed
+                        result: null
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution not found
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Execution not found
+  /api/v2/executions/{id}/events:
+    get:
+      summary: Stream execution events
+      tags:
+        - Executions
+      description: Stream real-time execution events via Server-Sent Events (SSE). The
+        stream will close when the execution completes or fails.
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: SSE event stream
+          content:
+            application/json:
+              schema:
+                type: string
+                description: SSE event stream
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution not found
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Execution not found
+  /api/v2/executions/{id}/resume:
+    post:
+      summary: Resume suspended execution
+      tags:
+        - Executions
+      description: Resume a suspended or waiting execution. Only executions in
+        'suspended' or 'waiting' status can be resumed.
+      parameters:
+        - schema:
+            type: string
+            example: 550e8400-e29b-41d4-a716-446655440000
+          in: path
+          name: id
+          required: true
+      responses:
+        "202":
+          description: Execution resumed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution resumed successfully
+                properties:
+                  id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  status:
+                    type: string
+                    example: running
+        "400":
+          description: Execution is not in a paused state
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution is not in a paused state
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: "Execution is not in a paused state. Current status: completed"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution not found
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Execution not found
+  /api/v2/tools:
+    get:
+      summary: List available tools
+      tags:
+        - Tools
+      description: Retrieves a list of all available tools for the authenticated tenant
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        parameters:
+                          type: object
+                example:
+                  tools:
+                    - name: search
+                      description: Search for information
+                      parameters:
+                        type: object
+                        properties:
+                          query:
+                            type: string
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                  error:
+                    type: string
+                  message:
+                    type: string
+                example:
+                  statusCode: 401
+                  error: Unauthorized
+                  message: Invalid or missing authentication
+  /api/v2/costs/executions/{id}:
+    get:
+      summary: Get execution cost details
+      tags:
+        - Costs
+      description: Retrieves detailed cost and usage information for a specific
+        execution, including token usage, compute time, and associated costs.
+      parameters:
+        - schema:
+            type: string
+          example: exec_abc123
+          in: path
+          name: id
+          required: true
+          description: Execution ID
+      responses:
+        "200":
+          description: Execution cost details
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution cost details
+                properties:
+                  executionId:
+                    type: string
+                    example: exec_abc123
+                  dagId:
+                    type: string
+                    example: dag_xyz789
+                  status:
+                    type: string
+                    example: completed
+                  usage:
+                    type: object
+                    properties:
+                      totalTokens:
+                        type: number
+                        example: 15000
+                      inputTokens:
+                        type: number
+                        example: 10000
+                      outputTokens:
+                        type: number
+                        example: 5000
+                      computeTimeMs:
+                        type: number
+                        example: 12500
+                  costs:
+                    type: object
+                    properties:
+                      tokenCost:
+                        type: number
+                        example: 0.045
+                      computeCost:
+                        type: number
+                        example: 0.012
+                      totalCost:
+                        type: number
+                        example: 0.057
+                  model:
+                    type:
+                      - "null"
+                      - string
+                    example: gpt-4
+                  startedAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-15T10:30:00Z
+                  completedAt:
+                    type:
+                      - "null"
+                      - string
+                    format: date-time
+                    example: 2024-01-15T10:32:00Z
+                  durationMs:
+                    type:
+                      - "null"
+                      - number
+                    example: 120000
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Execution not found
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Execution not found
+  /api/v2/costs/dags/{id}:
+    get:
+      summary: Get DAG cost details
+      tags:
+        - Costs
+      description: Retrieves aggregated cost and usage information for a DAG,
+        including totals across all executions and per-execution breakdown.
+      parameters:
+        - schema:
+            type: string
+          example: dag_xyz789
+          in: path
+          name: id
+          required: true
+          description: DAG ID
+      responses:
+        "200":
+          description: DAG cost details
+          content:
+            application/json:
+              schema:
+                type: object
+                description: DAG cost details
+                properties:
+                  dagId:
+                    type: string
+                    example: dag_xyz789
+                  objective:
+                    type: string
+                    example: Process customer data
+                  totalExecutions:
+                    type: number
+                    example: 5
+                  usage:
+                    type: object
+                    properties:
+                      totalTokens:
+                        type: number
+                        example: 75000
+                      computeTimeMs:
+                        type: number
+                        example: 62500
+                  costs:
+                    type: object
+                    properties:
+                      tokenCost:
+                        type: number
+                        example: 0.225
+                      computeCost:
+                        type: number
+                        example: 0.06
+                      totalCost:
+                        type: number
+                        example: 0.285
+                  executions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        executionId:
+                          type: string
+                          example: exec_abc123
+                        status:
+                          type: string
+                          example: completed
+                        totalCost:
+                          type: number
+                          example: 0.057
+                        startedAt:
+                          type: string
+                          format: date-time
+                          example: 2024-01-15T10:30:00Z
+                        completedAt:
+                          type:
+                            - "null"
+                            - string
+                          format: date-time
+                          example: 2024-01-15T10:32:00Z
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-01-10T08:00:00Z
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: DAG not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: DAG not found
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: DAG not found
+  /api/v2/costs/summary:
+    get:
+      summary: Get overall cost summary
+      tags:
+        - Costs
+      description: Retrieves an aggregated cost summary for the tenant, including
+        usage breakdown by resource type and model. Supports optional date range
+        filtering.
+      parameters:
+        - schema:
+            type: string
+            format: date
+          example: 2024-01-01
+          in: query
+          name: startDate
+          required: false
+          description: Start date for filtering (inclusive)
+        - schema:
+            type: string
+            format: date
+          example: 2024-01-31
+          in: query
+          name: endDate
+          required: false
+          description: End date for filtering (inclusive)
+      responses:
+        "200":
+          description: Cost summary
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Cost summary
+                properties:
+                  tenantId:
+                    type: string
+                    example: tenant_123
+                  period:
+                    type: object
+                    properties:
+                      startDate:
+                        type:
+                          - "null"
+                          - string
+                        example: 2024-01-01
+                      endDate:
+                        type:
+                          - "null"
+                          - string
+                        example: 2024-01-31
+                  usage:
+                    type: object
+                    properties:
+                      totalTokens:
+                        type: number
+                        example: 500000
+                      computeTimeMs:
+                        type: number
+                        example: 300000
+                  costs:
+                    type: object
+                    properties:
+                      tokenCost:
+                        type: number
+                        example: 1.5
+                      computeCost:
+                        type: number
+                        example: 0.3
+                      totalCost:
+                        type: number
+                        example: 1.8
+                  breakdown:
+                    type: object
+                    properties:
+                      byResourceType:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            resourceType:
+                              type: string
+                              example: tokens
+                            quantity:
+                              type: number
+                              example: 500000
+                            cost:
+                              type: number
+                              example: 1.5
+                      byModel:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            model:
+                              type: string
+                              example: gpt-4
+                            tokens:
+                              type: number
+                              example: 300000
+                            cost:
+                              type: number
+                              example: 0.9
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+  /api/v2/billing/usage:
+    get:
+      summary: Get current billing period usage
+      tags:
+        - Billing
+      description: Retrieves usage statistics and costs for the current billing period
+        including tokens, compute time, executions, and DAGs.
+      responses:
+        "200":
+          description: Current billing period usage data
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Current billing period usage data
+                properties:
+                  tenantId:
+                    type: string
+                    example: tenant_abc123
+                  period:
+                    type: object
+                    properties:
+                      start:
+                        type: string
+                        format: date-time
+                        example: 2024-01-01T00:00:00.000Z
+                      end:
+                        type: string
+                        format: date-time
+                        example: 2024-01-31T23:59:59.999Z
+                  usage:
+                    type: object
+                    properties:
+                      totalTokens:
+                        type: integer
+                        example: 150000
+                      computeTimeMs:
+                        type: integer
+                        example: 3600000
+                      totalExecutions:
+                        type: integer
+                        example: 42
+                      totalDags:
+                        type: integer
+                        example: 5
+                  costs:
+                    type: object
+                    properties:
+                      tokenCost:
+                        type: number
+                        example: 15
+                      computeCost:
+                        type: number
+                        example: 7.5
+                      totalCost:
+                        type: number
+                        example: 22.5
+                  quotas:
+                    type: object
+                    example:
+                      maxTokens: 1000000
+                      maxComputeTimeMs: 36000000
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized - Invalid or missing authentication
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+  /api/v2/billing/usage/history:
+    get:
+      summary: Get usage history with pagination
+      tags:
+        - Billing
+      description: Retrieves historical usage records with optional date filtering and
+        pagination support.
+      parameters:
+        - schema:
+            type: string
+            format: date
+            example: 2024-01-01
+          in: query
+          name: startDate
+          required: false
+        - schema:
+            type: string
+            format: date
+            example: 2024-01-31
+          in: query
+          name: endDate
+          required: false
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+            example: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Usage history with pagination
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Usage history with pagination
+                properties:
+                  tenantId:
+                    type: string
+                    example: tenant_abc123
+                  period:
+                    type: object
+                    properties:
+                      startDate:
+                        type: string
+                        nullable: true
+                        example: 2024-01-01
+                      endDate:
+                        type: string
+                        nullable: true
+                        example: 2024-01-31
+                  records:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: usage_xyz789
+                        resourceType:
+                          type: string
+                          example: tokens
+                        quantity:
+                          type: integer
+                          example: 5000
+                        unitCost:
+                          type: number
+                          example: 0.0001
+                        metadata:
+                          type: object
+                          properties:
+                            executionId:
+                              type: string
+                              nullable: true
+                              example: exec_123
+                            dagId:
+                              type: string
+                              nullable: true
+                              example: dag_456
+                            model:
+                              type: string
+                              nullable: true
+                              example: gpt-4
+                            inputTokens:
+                              type: integer
+                              nullable: true
+                              example: 3000
+                            outputTokens:
+                              type: integer
+                              nullable: true
+                              example: 2000
+                            computeTimeMs:
+                              type: integer
+                              nullable: true
+                              example: 1500
+                        timestamp:
+                          type: string
+                          format: date-time
+                          example: 2024-01-15T10:30:00.000Z
+                  summary:
+                    type: object
+                    properties:
+                      byResourceType:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            resourceType:
+                              type: string
+                              example: tokens
+                            totalQuantity:
+                              type: integer
+                              example: 150000
+                            totalCost:
+                              type: number
+                              example: 15
+                      totalCost:
+                        type: number
+                        example: 22.5
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 100
+                      limit:
+                        type: integer
+                        example: 50
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: true
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized - Invalid or missing authentication
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+  /api/v2/billing/invoices:
+    get:
+      summary: List invoices
+      tags:
+        - Billing
+      description: Retrieves a paginated list of invoices for the authenticated tenant
+        with optional status filtering.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - draft
+              - pending
+              - paid
+              - cancelled
+            example: paid
+          in: query
+          name: status
+          required: false
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+            example: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: List of invoices with pagination
+          content:
+            application/json:
+              schema:
+                type: object
+                description: List of invoices with pagination
+                properties:
+                  tenantId:
+                    type: string
+                    example: tenant_abc123
+                  invoices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: inv_abc123
+                        periodStart:
+                          type: string
+                          format: date-time
+                          example: 2024-01-01T00:00:00.000Z
+                        periodEnd:
+                          type: string
+                          format: date-time
+                          example: 2024-01-31T23:59:59.999Z
+                        subtotal:
+                          type: number
+                          example: 22.5
+                        total:
+                          type: number
+                          example: 22.5
+                        status:
+                          type: string
+                          enum:
+                            - draft
+                            - pending
+                            - paid
+                            - cancelled
+                          example: paid
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: 2024-02-01T00:00:00.000Z
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 12
+                      limit:
+                        type: integer
+                        example: 50
+                      offset:
+                        type: integer
+                        example: 0
+                      hasMore:
+                        type: boolean
+                        example: false
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized - Invalid or missing authentication
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+  /api/v2/billing/invoices/{id}:
+    get:
+      summary: Get invoice details
+      tags:
+        - Billing
+      description: Retrieves detailed information for a specific invoice including
+        line items and totals.
+      parameters:
+        - schema:
+            type: string
+            example: inv_abc123
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Invoice details with line items
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Invoice details with line items
+                properties:
+                  id:
+                    type: string
+                    example: inv_abc123
+                  tenantId:
+                    type: string
+                    example: tenant_abc123
+                  period:
+                    type: object
+                    properties:
+                      start:
+                        type: string
+                        format: date-time
+                        example: 2024-01-01T00:00:00.000Z
+                      end:
+                        type: string
+                        format: date-time
+                        example: 2024-01-31T23:59:59.999Z
+                  lineItems:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        resourceType:
+                          type: string
+                          example: tokens
+                        description:
+                          type: string
+                          example: Token usage for January 2024
+                        quantity:
+                          type: integer
+                          example: 150000
+                        unitCost:
+                          type: number
+                          example: 0.0001
+                        total:
+                          type: number
+                          example: 15
+                  subtotal:
+                    type: number
+                    example: 22.5
+                  total:
+                    type: number
+                    example: 22.5
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - paid
+                      - cancelled
+                    example: paid
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: 2024-02-01T00:00:00.000Z
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Unauthorized - Invalid or missing authentication
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Invalid or missing authentication token
+        "404":
+          description: Invoice not found
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Invoice not found
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Invoice with id 'inv_xyz' not found
+  /api/v2/admin/tenants:
+    get:
+      summary: List all tenants
+      tags:
+        - Admin
+      description: Retrieves a paginated list of all tenants with optional filtering
+        by status and plan. Requires admin scope.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - active
+              - suspended
+              - pending
+            example: active
+          in: query
+          name: status
+          required: false
+        - schema:
+            type: string
+            enum:
+              - free
+              - pro
+              - enterprise
+            example: pro
+          in: query
+          name: plan
+          required: false
+        - schema:
+            type: string
+            example: "20"
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: string
+            example: "0"
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: List of tenants retrieved successfully
+          content:
+            application/json:
+              schema:
+                description: List of tenants retrieved successfully
+                type: object
+                properties:
+                  tenants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: tnt_abc123
+                        name:
+                          type: string
+                          example: Acme Corporation
+                        slug:
+                          type: string
+                          example: acme-corp
+                        status:
+                          type: string
+                          enum:
+                            - active
+                            - suspended
+                            - pending
+                          example: active
+                        plan:
+                          type: string
+                          enum:
+                            - free
+                            - pro
+                            - enterprise
+                          example: pro
+                        quotas:
+                          type: object
+                          properties:
+                            maxUsers:
+                              type: number
+                              example: 50
+                            maxAgents:
+                              type: number
+                              example: 10
+                            maxExecutionsPerMonth:
+                              type: number
+                              example: 10000
+                            maxTokensPerMonth:
+                              type: number
+                              example: 1000000
+                        createdAt:
+                          type: string
+                          example: 2024-01-15T10:30:00.000Z
+                        updatedAt:
+                          type: string
+                          example: 2024-01-20T14:45:00.000Z
+                  total:
+                    type: number
+                    example: 42
+                  limit:
+                    type: number
+                    example: 20
+                  offset:
+                    type: number
+                    example: 0
+        "401":
+          description: Admin authentication required
+          content:
+            application/json:
+              schema:
+                description: Admin authentication required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Admin authentication required
+        "403":
+          description: Admin scope required
+          content:
+            application/json:
+              schema:
+                description: Admin scope required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 403
+                  error:
+                    type: string
+                    example: Forbidden
+                  message:
+                    type: string
+                    example: This action requires admin scope
+    post:
+      summary: Create new tenant
+      tags:
+        - Admin
+      description: Creates a new tenant with the specified name, slug, and optional
+        plan. Requires admin scope.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - slug
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  example: Acme Corporation
+                slug:
+                  type: string
+                  minLength: 1
+                  pattern: ^[a-z0-9-]+$
+                  example: acme-corp
+                plan:
+                  type: string
+                  enum:
+                    - free
+                    - pro
+                    - enterprise
+                  example: pro
+        required: true
+      responses:
+        "201":
+          description: Tenant created successfully
+          content:
+            application/json:
+              schema:
+                description: Tenant created successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: tnt_abc123
+                  name:
+                    type: string
+                    example: Acme Corporation
+                  slug:
+                    type: string
+                    example: acme-corp
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - pending
+                    example: pending
+                  plan:
+                    type: string
+                    enum:
+                      - free
+                      - pro
+                      - enterprise
+                    example: pro
+                  quotas:
+                    type: object
+                    properties:
+                      maxUsers:
+                        type: number
+                        example: 50
+                      maxAgents:
+                        type: number
+                        example: 10
+                      maxExecutionsPerMonth:
+                        type: number
+                        example: 10000
+                      maxTokensPerMonth:
+                        type: number
+                        example: 1000000
+                  createdAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                  updatedAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                description: Invalid request body
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: body must have required property 'name'
+        "401":
+          description: Admin authentication required
+          content:
+            application/json:
+              schema:
+                description: Admin authentication required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Admin authentication required
+        "403":
+          description: Admin scope required
+          content:
+            application/json:
+              schema:
+                description: Admin scope required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 403
+                  error:
+                    type: string
+                    example: Forbidden
+                  message:
+                    type: string
+                    example: This action requires admin scope
+        "409":
+          description: Tenant with slug already exists
+          content:
+            application/json:
+              schema:
+                description: Tenant with slug already exists
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 409
+                  error:
+                    type: string
+                    example: Conflict
+                  message:
+                    type: string
+                    example: A tenant with this slug already exists
+  /api/v2/admin/tenants/{id}:
+    get:
+      summary: Get tenant by ID
+      tags:
+        - Admin
+      description: Retrieves a single tenant by its unique identifier. Requires admin scope.
+      parameters:
+        - schema:
+            type: string
+            example: tnt_abc123
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Tenant retrieved successfully
+          content:
+            application/json:
+              schema:
+                description: Tenant retrieved successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: tnt_abc123
+                  name:
+                    type: string
+                    example: Acme Corporation
+                  slug:
+                    type: string
+                    example: acme-corp
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - pending
+                    example: active
+                  plan:
+                    type: string
+                    enum:
+                      - free
+                      - pro
+                      - enterprise
+                    example: pro
+                  quotas:
+                    type: object
+                    properties:
+                      maxUsers:
+                        type: number
+                        example: 50
+                      maxAgents:
+                        type: number
+                        example: 10
+                      maxExecutionsPerMonth:
+                        type: number
+                        example: 10000
+                      maxTokensPerMonth:
+                        type: number
+                        example: 1000000
+                  createdAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                  updatedAt:
+                    type: string
+                    example: 2024-01-20T14:45:00.000Z
+        "401":
+          description: Admin authentication required
+          content:
+            application/json:
+              schema:
+                description: Admin authentication required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Admin authentication required
+        "403":
+          description: Admin scope required
+          content:
+            application/json:
+              schema:
+                description: Admin scope required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 403
+                  error:
+                    type: string
+                    example: Forbidden
+                  message:
+                    type: string
+                    example: This action requires admin scope
+        "404":
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                description: Tenant not found
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Tenant not found
+    patch:
+      summary: Update tenant
+      tags:
+        - Admin
+      description: Updates an existing tenant's properties such as name, status, plan,
+        or quotas. Requires admin scope.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  example: Acme Corporation Updated
+                status:
+                  type: string
+                  enum:
+                    - active
+                    - suspended
+                    - pending
+                  example: active
+                plan:
+                  type: string
+                  enum:
+                    - free
+                    - pro
+                    - enterprise
+                  example: enterprise
+                quotas:
+                  type: object
+                  properties:
+                    maxUsers:
+                      type: number
+                      example: 100
+                    maxAgents:
+                      type: number
+                      example: 25
+                    maxExecutionsPerMonth:
+                      type: number
+                      example: 50000
+                    maxTokensPerMonth:
+                      type: number
+                      example: 5000000
+      parameters:
+        - schema:
+            type: string
+            example: tnt_abc123
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Tenant updated successfully
+          content:
+            application/json:
+              schema:
+                description: Tenant updated successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: tnt_abc123
+                  name:
+                    type: string
+                    example: Acme Corporation Updated
+                  slug:
+                    type: string
+                    example: acme-corp
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - pending
+                    example: active
+                  plan:
+                    type: string
+                    enum:
+                      - free
+                      - pro
+                      - enterprise
+                    example: enterprise
+                  quotas:
+                    type: object
+                    properties:
+                      maxUsers:
+                        type: number
+                        example: 100
+                      maxAgents:
+                        type: number
+                        example: 25
+                      maxExecutionsPerMonth:
+                        type: number
+                        example: 50000
+                      maxTokensPerMonth:
+                        type: number
+                        example: 5000000
+                  createdAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                  updatedAt:
+                    type: string
+                    example: 2024-01-25T09:15:00.000Z
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                description: Invalid request body
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: body/status must be equal to one of the allowed values
+        "401":
+          description: Admin authentication required
+          content:
+            application/json:
+              schema:
+                description: Admin authentication required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Admin authentication required
+        "403":
+          description: Admin scope required
+          content:
+            application/json:
+              schema:
+                description: Admin scope required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 403
+                  error:
+                    type: string
+                    example: Forbidden
+                  message:
+                    type: string
+                    example: This action requires admin scope
+        "404":
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                description: Tenant not found
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Tenant not found
+    delete:
+      summary: Delete or suspend tenant
+      tags:
+        - Admin
+      description: Deletes or suspends a tenant. Use action=delete for permanent
+        deletion or action=suspend (or omit) to suspend. Requires admin scope.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - suspend
+              - delete
+            example: suspend
+          in: query
+          name: action
+          required: false
+        - schema:
+            type: string
+            example: tnt_abc123
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Tenant suspended successfully
+          content:
+            application/json:
+              schema:
+                description: Tenant suspended successfully
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: tnt_abc123
+                  name:
+                    type: string
+                    example: Acme Corporation
+                  slug:
+                    type: string
+                    example: acme-corp
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - pending
+                    example: suspended
+                  plan:
+                    type: string
+                    enum:
+                      - free
+                      - pro
+                      - enterprise
+                    example: pro
+                  quotas:
+                    type: object
+                    properties:
+                      maxUsers:
+                        type: number
+                        example: 50
+                      maxAgents:
+                        type: number
+                        example: 10
+                      maxExecutionsPerMonth:
+                        type: number
+                        example: 10000
+                      maxTokensPerMonth:
+                        type: number
+                        example: 1000000
+                  createdAt:
+                    type: string
+                    example: 2024-01-15T10:30:00.000Z
+                  updatedAt:
+                    type: string
+                    example: 2024-01-25T09:15:00.000Z
+        "204":
+          description: Tenant deleted successfully
+        "401":
+          description: Admin authentication required
+          content:
+            application/json:
+              schema:
+                description: Admin authentication required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 401
+                  error:
+                    type: string
+                    example: Unauthorized
+                  message:
+                    type: string
+                    example: Admin authentication required
+        "403":
+          description: Admin scope required
+          content:
+            application/json:
+              schema:
+                description: Admin scope required
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 403
+                  error:
+                    type: string
+                    example: Forbidden
+                  message:
+                    type: string
+                    example: This action requires admin scope
+        "404":
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                description: Tenant not found
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not Found
+                  message:
+                    type: string
+                    example: Tenant not found
+servers:
+  - url: http://localhost:3000
+    description: Development server
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Authentication
+    description: Authentication and API key management
+  - name: Users
+    description: User management endpoints
+  - name: Agents
+    description: Agent configuration and management
+  - name: DAGs
+    description: Directed Acyclic Graph management
+  - name: Executions
+    description: Agent execution management
+  - name: Tools
+    description: Tool management endpoints
+  - name: Costs
+    description: Cost tracking endpoints
+  - name: Billing
+    description: Billing and usage endpoints
+  - name: Admin
+    description: Administrative endpoints

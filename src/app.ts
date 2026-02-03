@@ -111,6 +111,15 @@ export async function buildApp() {
         { name: "Billing", description: "Billing and usage endpoints" },
         { name: "Admin", description: "Administrative endpoints" },
       ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+          },
+        },
+      },
     },
   });
 

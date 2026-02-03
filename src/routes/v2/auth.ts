@@ -288,6 +288,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Authentication"],
         summary: "Revoke API key",
         description: "Revokes an existing API key by ID",
+        consumes: ["application/json"],
         params: {
           type: "object",
           required: ["id"],

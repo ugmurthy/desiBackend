@@ -13,6 +13,161 @@ interface ListExecutionsQuery {
   offset?: number;
 }
 
+// ============ Shared Schema Definitions ============
+
+const errorSchemas = {
+  unauthorized401: {
+    type: "object",
+    description: "Unauthorized",
+    properties: {
+      statusCode: { type: "integer", example: 401 },
+      error: { type: "string", example: "Unauthorized" },
+      message: { type: "string", example: "Invalid or missing authentication token" },
+    },
+  },
+  notFound404: {
+    type: "object",
+    description: "Execution not found",
+    properties: {
+      statusCode: { type: "integer", example: 404 },
+      error: { type: "string", example: "Not Found" },
+      message: { type: "string", example: "Execution not found" },
+    },
+  },
+  badRequest400: {
+    type: "object",
+    description: "Execution is not in a paused state",
+    properties: {
+      statusCode: { type: "integer", example: 400 },
+      error: { type: "string", example: "Bad Request" },
+      message: { type: "string", example: "Execution is not in a paused state. Current status: completed" },
+    },
+  },
+} as const;
+
+const executionIdParamSchema = {
+  type: "object",
+  required: ["id"],
+  properties: {
+    id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+  },
+} as const;
+
+const executionSummarySchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+    dagId: { type: "string", example: "660e8400-e29b-41d4-a716-446655440001" },
+    originalRequest: { type: "string", example: "Analyze data" },
+    primaryIntent: { type: "string", example: "data_analysis" },
+    status: { type: "string", example: "completed" },
+    totalTasks: { type: "integer", example: 5 },
+    completedTasks: { type: "integer", example: 5 },
+    failedTasks: { type: "integer", example: 0 },
+    waitingTasks: { type: "integer", example: 0 },
+    startedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+    completedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:01:00Z" },
+    durationMs: { type: "integer", nullable: true, example: 60000 },
+    createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+  },
+} as const;
+
+const executionDetailSchema = {
+  type: "object",
+  description: "Execution details",
+  properties: {
+    ...executionSummarySchema.properties,
+    finalResult: { type: "object", nullable: true, example: { summary: "Analysis complete" } },
+    synthesisResult: { type: "string", nullable: true, example: "Data analysis completed successfully" },
+    suspendedReason: { type: "string", nullable: true, example: null },
+    suspendedAt: { type: "string", format: "date-time", nullable: true, example: null },
+    retryCount: { type: "integer", example: 0 },
+    totalUsage: { type: "object", nullable: true, example: { tokens: 1500 } },
+    totalCostUsd: { type: "number", nullable: true, example: 0.015 },
+    updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:01:00Z" },
+  },
+} as const;
+
+const subStepSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", example: "step-001" },
+    executionId: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+    taskId: { type: "string", example: "task-001" },
+    description: { type: "string", example: "Fetch data from API" },
+    thought: { type: "string", example: "Need to retrieve data first" },
+    actionType: { type: "string", enum: ["tool", "inference"], example: "tool" },
+    toolOrPromptName: { type: "string", example: "fetchData" },
+    toolOrPromptParams: { type: "object", nullable: true, additionalProperties: true, example: { url: "https://api.example.com" } },
+    dependencies: { type: "array", items: { type: "string" }, example: [] },
+    status: { type: "string", enum: ["pending", "running", "waiting", "completed", "failed"], example: "completed" },
+    startedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:00:00Z" },
+    completedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:00:30Z" },
+    durationMs: { type: "integer", nullable: true, example: 30000 },
+    result: { type: "string", nullable: true, additionalProperties: true },
+    error: { type: "string", nullable: true, example: null },
+    usage: {
+      type: "object",
+      nullable: true,
+      properties: {
+        promptTokens: { type: "integer", example: 100 },
+        completionTokens: { type: "integer", example: 50 },
+        totalTokens: { type: "integer", example: 150 },
+      },
+    },
+    costUsd: { type: "string", nullable: true, example: "0.0015" },
+    generationStats: { type: "object", nullable: true, additionalProperties: true },
+    createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+    updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:30Z" },
+  },
+} as const;
+
+const paginationSchema = {
+  type: "object",
+  properties: {
+    total: { type: "integer", example: 10 },
+    limit: { type: "integer", example: 20 },
+    offset: { type: "integer", example: 0 },
+    hasMore: { type: "boolean", example: false },
+  },
+} as const;
+
+// ============ Helper Functions ============
+
+function mapExecutionToSummary(exec: Record<string, unknown>) {
+  return {
+    id: exec.id,
+    dagId: exec.dagId,
+    originalRequest: exec.originalRequest,
+    primaryIntent: exec.primaryIntent,
+    status: exec.status,
+    totalTasks: exec.totalTasks,
+    completedTasks: exec.completedTasks,
+    failedTasks: exec.failedTasks,
+    waitingTasks: exec.waitingTasks,
+    startedAt: exec.startedAt,
+    completedAt: exec.completedAt,
+    durationMs: exec.durationMs,
+    createdAt: exec.createdAt,
+  };
+}
+
+function mapExecutionToDetail(exec: Record<string, unknown>) {
+  return {
+    ...mapExecutionToSummary(exec),
+    finalResult: exec.finalResult,
+    synthesisResult: exec.synthesisResult,
+    suspendedReason: exec.suspendedReason,
+    suspendedAt: exec.suspendedAt,
+    retryCount: exec.retryCount,
+    totalUsage: exec.totalUsage,
+    totalCostUsd: exec.totalCostUsd,
+    updatedAt: exec.updatedAt,
+  };
+}
+
+// ============ Routes ============
+
 const executionsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: ListExecutionsQuery }>(
     "/executions",
@@ -42,45 +197,12 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
             properties: {
               executions: {
                 type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-                    dagId: { type: "string", example: "660e8400-e29b-41d4-a716-446655440001" },
-                    originalRequest: { type: "string", example: "Analyze data" },
-                    primaryIntent: { type: "string", example: "data_analysis" },
-                    status: { type: "string", example: "completed" },
-                    totalTasks: { type: "integer", example: 5 },
-                    completedTasks: { type: "integer", example: 5 },
-                    failedTasks: { type: "integer", example: 0 },
-                    waitingTasks: { type: "integer", example: 0 },
-                    startedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
-                    completedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:01:00Z" },
-                    durationMs: { type: "integer", nullable: true, example: 60000 },
-                    createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
-                  },
-                },
+                items: executionSummarySchema,
               },
-              pagination: {
-                type: "object",
-                properties: {
-                  total: { type: "integer", example: 10 },
-                  limit: { type: "integer", example: 20 },
-                  offset: { type: "integer", example: 0 },
-                  hasMore: { type: "boolean", example: false },
-                },
-              },
+              pagination: paginationSchema,
             },
           },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "integer", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid or missing authentication token" },
-            },
-          },
+          401: errorSchemas.unauthorized401,
         },
       },
     },
@@ -104,21 +226,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
       const executions = await client.executions.list(filter);
 
       return {
-        executions: executions.map((exec) => ({
-          id: exec.id,
-          dagId: exec.dagId,
-          originalRequest: exec.originalRequest,
-          primaryIntent: exec.primaryIntent,
-          status: exec.status,
-          totalTasks: exec.totalTasks,
-          completedTasks: exec.completedTasks,
-          failedTasks: exec.failedTasks,
-          waitingTasks: exec.waitingTasks,
-          startedAt: exec.startedAt,
-          completedAt: exec.completedAt,
-          durationMs: exec.durationMs,
-          createdAt: exec.createdAt,
-        })),
+        executions: executions.map((exec) => mapExecutionToSummary(exec as unknown as Record<string, unknown>)),
         pagination: {
           total: executions.length,
           limit,
@@ -137,59 +245,11 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Executions"],
         summary: "Get execution by ID",
         description: "Retrieve detailed information about a specific execution by its unique identifier.",
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-          },
-        },
+        params: executionIdParamSchema,
         response: {
-          200: {
-            type: "object",
-            description: "Execution details",
-            properties: {
-              id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-              dagId: { type: "string", example: "660e8400-e29b-41d4-a716-446655440001" },
-              originalRequest: { type: "string", example: "Analyze data" },
-              primaryIntent: { type: "string", example: "data_analysis" },
-              status: { type: "string", example: "completed" },
-              totalTasks: { type: "integer", example: 5 },
-              completedTasks: { type: "integer", example: 5 },
-              failedTasks: { type: "integer", example: 0 },
-              waitingTasks: { type: "integer", example: 0 },
-              finalResult: { type: "object", nullable: true, example: { summary: "Analysis complete" } },
-              synthesisResult: { type: "string", nullable: true, example: "Data analysis completed successfully" },
-              suspendedReason: { type: "string", nullable: true, example: null },
-              suspendedAt: { type: "string", format: "date-time", nullable: true, example: null },
-              retryCount: { type: "integer", example: 0 },
-              totalUsage: { type: "object", nullable: true, example: { tokens: 1500 } },
-              totalCostUsd: { type: "number", nullable: true, example: 0.015 },
-              startedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
-              completedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:01:00Z" },
-              durationMs: { type: "integer", nullable: true, example: 60000 },
-              createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
-              updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:01:00Z" },
-            },
-          },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "integer", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid or missing authentication token" },
-            },
-          },
-          404: {
-            type: "object",
-            description: "Execution not found",
-            properties: {
-              statusCode: { type: "integer", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Execution not found" },
-            },
-          },
+          200: executionDetailSchema,
+          401: errorSchemas.unauthorized401,
+          404: errorSchemas.notFound404,
         },
       },
     },
@@ -202,30 +262,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const execution = await client.executions.get(id);
-
-        return {
-          id: execution.id,
-          dagId: execution.dagId,
-          originalRequest: execution.originalRequest,
-          primaryIntent: execution.primaryIntent,
-          status: execution.status,
-          totalTasks: execution.totalTasks,
-          completedTasks: execution.completedTasks,
-          failedTasks: execution.failedTasks,
-          waitingTasks: execution.waitingTasks,
-          finalResult: execution.finalResult,
-          synthesisResult: execution.synthesisResult,
-          suspendedReason: execution.suspendedReason,
-          suspendedAt: execution.suspendedAt,
-          retryCount: execution.retryCount,
-          totalUsage: execution.totalUsage,
-          totalCostUsd: execution.totalCostUsd,
-          startedAt: execution.startedAt,
-          completedAt: execution.completedAt,
-          durationMs: execution.durationMs,
-          createdAt: execution.createdAt,
-          updatedAt: execution.updatedAt,
-        };
+        return mapExecutionToDetail(execution as unknown as Record<string, unknown>);
       } catch (error) {
         if (error instanceof Error && error.name === "NotFoundError") {
           return reply.status(404).send({
@@ -247,73 +284,21 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Executions"],
         summary: "Get execution with sub-steps",
         description: "Retrieve detailed information about a specific execution including all its sub-steps.",
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-          },
-        },
+        params: executionIdParamSchema,
         response: {
           200: {
             type: "object",
             description: "Execution details with sub-steps",
             properties: {
-              id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-              dagId: { type: "string", example: "660e8400-e29b-41d4-a716-446655440001" },
-              originalRequest: { type: "string", example: "Analyze data" },
-              primaryIntent: { type: "string", example: "data_analysis" },
-              status: { type: "string", example: "completed" },
-              totalTasks: { type: "integer", example: 5 },
-              completedTasks: { type: "integer", example: 5 },
-              failedTasks: { type: "integer", example: 0 },
-              waitingTasks: { type: "integer", example: 0 },
-              finalResult: { type: "object", nullable: true, example: { summary: "Analysis complete" } },
-              synthesisResult: { type: "string", nullable: true, example: "Data analysis completed successfully" },
-              suspendedReason: { type: "string", nullable: true, example: null },
-              suspendedAt: { type: "string", format: "date-time", nullable: true, example: null },
-              retryCount: { type: "integer", example: 0 },
-              totalUsage: { type: "object", nullable: true, example: { tokens: 1500 } },
-              totalCostUsd: { type: "number", nullable: true, example: 0.015 },
-              startedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
-              completedAt: { type: "string", format: "date-time", nullable: true, example: "2024-01-01T00:01:00Z" },
-              durationMs: { type: "integer", nullable: true, example: 60000 },
-              createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
-              updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:01:00Z" },
+              ...executionDetailSchema.properties,
               subSteps: {
                 type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    id: { type: "string", example: "step-001" },
-                    name: { type: "string", example: "Fetch data" },
-                    status: { type: "string", example: "completed" },
-                    result:{type:"string",example:"..."}
-                    //result: { type: "object",additionalProperties: true, nullable: true},
-                  },
-                },
-                example: [{ id: "step-001", name: "Fetch data", status: "completed", result: null }],
+                items: subStepSchema,
               },
             },
           },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "integer", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid or missing authentication token" },
-            },
-          },
-          404: {
-            type: "object",
-            description: "Execution not found",
-            properties: {
-              statusCode: { type: "integer", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Execution not found" },
-            },
-          },
+          401: errorSchemas.unauthorized401,
+          404: errorSchemas.notFound404,
         },
       },
     },
@@ -326,29 +311,8 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const executionWithSteps = await client.executions.getWithSubSteps(id);
-
         return {
-          id: executionWithSteps.id,
-          dagId: executionWithSteps.dagId,
-          originalRequest: executionWithSteps.originalRequest,
-          primaryIntent: executionWithSteps.primaryIntent,
-          status: executionWithSteps.status,
-          totalTasks: executionWithSteps.totalTasks,
-          completedTasks: executionWithSteps.completedTasks,
-          failedTasks: executionWithSteps.failedTasks,
-          waitingTasks: executionWithSteps.waitingTasks,
-          finalResult: executionWithSteps.finalResult,
-          synthesisResult: executionWithSteps.synthesisResult,
-          suspendedReason: executionWithSteps.suspendedReason,
-          suspendedAt: executionWithSteps.suspendedAt,
-          retryCount: executionWithSteps.retryCount,
-          totalUsage: executionWithSteps.totalUsage,
-          totalCostUsd: executionWithSteps.totalCostUsd,
-          startedAt: executionWithSteps.startedAt,
-          completedAt: executionWithSteps.completedAt,
-          durationMs: executionWithSteps.durationMs,
-          createdAt: executionWithSteps.createdAt,
-          updatedAt: executionWithSteps.updatedAt,
+          ...mapExecutionToDetail(executionWithSteps as unknown as Record<string, unknown>),
           subSteps: executionWithSteps.subSteps,
         };
       } catch (error) {
@@ -372,13 +336,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Executions"],
         summary: "Get execution sub-steps",
         description: "Retrieve only the sub-steps for a specific execution.",
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-          },
-        },
+        params: executionIdParamSchema,
         response: {
           200: {
             type: "object",
@@ -387,38 +345,12 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
               executionId: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
               subSteps: {
                 type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    id: { type: "string", example: "step-001" },
-                    name: { type: "string", example: "Fetch data" },
-                    status: { type: "string", example: "completed" },
-                    result: {type:"string",example:"..."}
-                    //result: { type: "object",additionalProperties: true, nullable: true },
-                  },
-                },
-                example: [{ id: "step-001", name: "Fetch data", status: "completed", result: null }],
+                items: subStepSchema,
               },
             },
           },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "integer", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid or missing authentication token" },
-            },
-          },
-          404: {
-            type: "object",
-            description: "Execution not found",
-            properties: {
-              statusCode: { type: "integer", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Execution not found" },
-            },
-          },
+          401: errorSchemas.unauthorized401,
+          404: errorSchemas.notFound404,
         },
       },
     },
@@ -431,7 +363,6 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const subSteps = await client.executions.getSubSteps(id);
-
         return {
           executionId: id,
           subSteps,
@@ -457,36 +388,15 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Executions"],
         summary: "Delete execution",
         description: "Delete a specific execution by its unique identifier.",
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-          },
-        },
+        consumes: ["application/json"],
+        params: executionIdParamSchema,
         response: {
           204: {
             type: "null",
             description: "Execution deleted successfully",
           },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "integer", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid or missing authentication token" },
-            },
-          },
-          404: {
-            type: "object",
-            description: "Execution not found",
-            properties: {
-              statusCode: { type: "integer", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Execution not found" },
-            },
-          },
+          401: errorSchemas.unauthorized401,
+          404: errorSchemas.notFound404,
         },
       },
     },
@@ -521,36 +431,14 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Executions"],
         summary: "Stream execution events",
         description: "Stream real-time execution events via Server-Sent Events (SSE). The stream will close when the execution completes or fails.",
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-          },
-        },
+        params: executionIdParamSchema,
         response: {
           200: {
             type: "string",
             description: "SSE event stream",
           },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "integer", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid or missing authentication token" },
-            },
-          },
-          404: {
-            type: "object",
-            description: "Execution not found",
-            properties: {
-              statusCode: { type: "integer", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Execution not found" },
-            },
-          },
+          401: errorSchemas.unauthorized401,
+          404: errorSchemas.notFound404,
         },
       },
     },
@@ -602,13 +490,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Executions"],
         summary: "Resume suspended execution",
         description: "Resume a suspended or waiting execution. Only executions in 'suspended' or 'waiting' status can be resumed.",
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
-          },
-        },
+        params: executionIdParamSchema,
         response: {
           202: {
             type: "object",
@@ -618,33 +500,9 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
               status: { type: "string", example: "running" },
             },
           },
-          400: {
-            type: "object",
-            description: "Execution is not in a paused state",
-            properties: {
-              statusCode: { type: "integer", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "Execution is not in a paused state. Current status: completed" },
-            },
-          },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "integer", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid or missing authentication token" },
-            },
-          },
-          404: {
-            type: "object",
-            description: "Execution not found",
-            properties: {
-              statusCode: { type: "integer", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Execution not found" },
-            },
-          },
+          400: errorSchemas.badRequest400,
+          401: errorSchemas.unauthorized401,
+          404: errorSchemas.notFound404,
         },
       },
     },

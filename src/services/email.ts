@@ -57,6 +57,56 @@ class ConsoleEmailProvider implements EmailProvider {
   }
 }
 
+/**
+ * Email provider using @ugm/desiagent's SendEmailTool
+ * Requires SMTP environment variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+ */
+class DesiAgentEmailProvider implements EmailProvider {
+  private sendEmailTool: any;
+  private initialized = false;
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+
+    const { SendEmailTool } = await import("@ugm/desiagent");
+    this.sendEmailTool = new SendEmailTool();
+    this.initialized = true;
+  }
+
+  async sendEmail(options: SendEmailOptions): Promise<void> {
+    await this.ensureInitialized();
+
+    const ctx = {
+      logger: {
+        debug: (msg: string, data?: any) => console.debug(`[SendEmail] ${msg}`, data ?? ""),
+        info: (msg: string, data?: any) => console.info(`[SendEmail] ${msg}`, data ?? ""),
+        warn: (msg: string, data?: any) => console.warn(`[SendEmail] ${msg}`, data ?? ""),
+        error: (msg: string, data?: any) => console.error(`[SendEmail] ${msg}`, data ?? ""),
+      },
+      artifactsDir: "./artifacts",
+      emitEvent: {
+        completed: (msg: string) => console.log(`[SendEmail] Completed: ${msg}`),
+      },
+    };
+
+    const result = await this.sendEmailTool.execute(
+      {
+        to: options.to,
+        subject: options.subject,
+        body: options.html,
+        html: true,
+      },
+      ctx
+    );
+
+    if (!result.success) {
+      throw new Error(`Failed to send email: ${result.error ?? "Unknown error"}`);
+    }
+  }
+}
+
+export { DesiAgentEmailProvider };
+
 let emailProvider: EmailProvider = new ConsoleEmailProvider();
 
 export function setEmailProvider(provider: EmailProvider): void {

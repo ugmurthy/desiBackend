@@ -356,6 +356,7 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Agents"],
         summary: "Delete agent",
         description: "Deletes an agent by its ID. Active agents cannot be deleted.",
+        consumes: ["application/json"],
         params: {
           type: "object",
           required: ["id"],

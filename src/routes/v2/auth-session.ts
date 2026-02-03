@@ -466,6 +466,85 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  // Resend verification email endpoint
+  fastify.post<{ Params: TenantSlugParams; Body: { email: string } }>(
+    "/auth/resend-verification/:tenantSlug",
+    {
+      ...AUTH_RATE_LIMIT,
+      schema: {
+        tags: ["Authentication"],
+        summary: "Resend verification email",
+        description: "Resends the email verification link. Always returns 200 to prevent email enumeration.",
+        consumes: ["application/json"],
+        params: {
+          type: "object",
+          required: ["tenantSlug"],
+          properties: {
+            tenantSlug: { type: "string", example: "acme-corp" },
+          },
+        },
+        body: {
+          type: "object",
+          required: ["email"],
+          properties: {
+            email: { type: "string", format: "email", example: "john@example.com" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string", example: "If the email exists and is unverified, a verification link has been sent" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { tenantSlug } = request.params;
+      const { email } = request.body;
+
+      const successResponse = {
+        message: "If the email exists and is unverified, a verification link has been sent",
+      };
+
+      const tenant = getTenantBySlug(tenantSlug);
+      if (!tenant || tenant.status !== "active") {
+        return successResponse;
+      }
+
+      const tenantDb = await initializeTenantUserSchema(tenant.id);
+      const user = getUserByEmail(tenantDb, email);
+
+      if (!user || user.emailVerified) {
+        return successResponse;
+      }
+
+      const verificationToken = generateVerificationToken();
+      const now = Math.floor(Date.now() / 1000);
+      const verificationExpiry = now + 24 * 60 * 60; // 24 hours
+
+      const updateStmt = tenantDb.prepare(`
+        UPDATE users
+        SET emailVerificationToken = ?, emailVerificationExpiry = ?, updatedAt = datetime('now')
+        WHERE id = ?
+      `);
+      updateStmt.run(verificationToken, verificationExpiry, user.id);
+
+      const baseUrl = fastify.config.BASE_URL;
+      const verificationLink = `${baseUrl}/api/v2/auth/verify-email/${verificationToken}`;
+
+      await sendVerificationEmail({
+        email: user.email,
+        name: user.name,
+        tenantName: tenant.name,
+        verificationLink,
+      });
+
+      return successResponse;
+    }
+  );
+
   // US-007: Login endpoint
   fastify.post<{ Params: TenantSlugParams; Body: LoginBody }>(
     "/auth/login/:tenantSlug",

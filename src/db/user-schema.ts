@@ -4,6 +4,8 @@ import { homedir } from "os";
 import { mkdirSync, existsSync } from "fs";
 import { initDB } from "@ugm/desiagent";
 import { initializeApiKeySchema } from "./api-key-schema";
+import { runMigrations } from "./migrations";
+import { tenantMigrations } from "./migrations/tenant";
 
 export type UserRole = "admin" | "member" | "viewer";
 
@@ -143,5 +145,9 @@ export async function initializeTenantUserSchema(tenantId: string): Promise<Data
   initializeApiKeySchema(db);
   initializeSessionSchema(db);
   initializeAuthLogSchema(db);
+  
+  // Run any pending migrations for this tenant
+  runMigrations(db, tenantMigrations, `tenant:${tenantId}`);
+  
   return db;
 }

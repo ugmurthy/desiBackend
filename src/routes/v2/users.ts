@@ -378,6 +378,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Users"],
         summary: "Delete user",
         description: "Deletes a specific user from the tenant. Requires admin role. Cannot delete your own account.",
+        consumes: ["application/json"],
         params: {
           type: "object",
           required: ["id"],

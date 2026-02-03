@@ -4,7 +4,7 @@
  * Usage: bun run execute-goal-sdk.ts -f <filename>
  */
 
-import { ApiClient } from './sdk';
+import { ApiClient } from './desiClient';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -168,7 +168,7 @@ try {
   console.log('');
 
   // Execute the DAG
-  const executeResponse = await client.dags.postByIdExecute({
+  const executeResponse = await client.dags.execute({
     id: dagId,
     body: Object.keys(executeBody).length > 0 ? executeBody : undefined,
   }) as Record<string, unknown>;

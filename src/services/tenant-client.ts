@@ -1,6 +1,6 @@
 import { setupDesiAgent } from "@ugm/desiagent";
 import type { DesiAgentClient, DesiAgentConfig } from "@ugm/desiagent";
-import { getTenantDbPath } from "../db/user-schema.js";
+import { getTenantDbPath, initializeTenantUserSchema } from "../db/user-schema.js";
 
 interface TenantClientOptions {
   llmProvider: "openai" | "openrouter" | "ollama";
@@ -24,6 +24,10 @@ class TenantClientService {
     if (existing) {
       return existing;
     }
+
+    // Ensure schema and migrations are applied before desiagent accesses the DB
+    const tenantDb = await initializeTenantUserSchema(tenantId);
+    tenantDb.close();
 
     const databasePath = getTenantDbPath(tenantId);
     
