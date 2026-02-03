@@ -1,9 +1,10 @@
 import { setupDesiAgent } from "@ugm/desiagent";
 import type { DesiAgentClient, DesiAgentConfig } from "@ugm/desiagent";
 import { getTenantDbPath, initializeTenantUserSchema } from "../db/user-schema.js";
+import type { LLMProvider } from "../config/env";
 
 interface TenantClientOptions {
-  llmProvider: "openai" | "openrouter" | "ollama";
+  llmProvider: LLMProvider;
   openaiApiKey?: string;
   openrouterApiKey?: string;
   ollamaBaseUrl?: string;

@@ -7,7 +7,7 @@
 import { ApiClient } from '../desiClient';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-
+import chalk from 'chalk';
 // Default values
 const API_BASE_URL = process.env.DESI_BACKEND_URL || 'http://localhost:3000';
 const API_TOKEN = process.env.DESI_API_TOKEN || '';
@@ -27,7 +27,7 @@ const client = new ApiClient({
   baseUrl: API_BASE_URL,
   token: API_TOKEN,
 });
-const exec_id = 'exec_9nAj3qoKaK2YykQ2VTTXj'
+const exec_id = 'exec_JaxURH6ILU0z9JQh95hd8'
 try {
   // Create the DAG
   const {executions} = await client.executions.list({})
@@ -60,15 +60,15 @@ try {
   console.log('Executions:')
   
   //console.log(JSON.stringify(createResponse));
-  for (const execution of createResponse.executions) {
-    console.log(`${execution.id}, ${execution.dagId}, ${execution.primaryIntent}`)
-     const {subSteps} = await client.executions.getSubSteps({id:execution.id})
-     //console.log('Substeps:',JSON.stringify(Object.keys(subSteps[0])) );
-     
-     const details= client.executions.getByIdDetails({id:execution.id})
-      console.log('details:',JSON.stringify(details)) ;
-
-     //console.log('')
+  for (const execution of executions) {
+    console.log(chalk.yellow(`${execution.id}, ${execution.dagId}, ${execution.primaryIntent}`))
+    const {subSteps} = await client.executions.getSubSteps({id:execution.id})
+    for (const step of subSteps) {
+      console.log(chalk.green(`╰─${step.taskId} : ${step.status} ${step.toolOrPromptName}`));
+      console.log(chalk.green(` ╰─Relies on result of: ${step.dependencies}`));
+      console.log(chalk.blue (`  ╰─(Thought)${step.thought}`));
+      console.log(chalk.magenta(`  ╰─(Action)${step.description}`));
+    }  
 
   }
 } catch (error) {

@@ -45,12 +45,14 @@ export const envSchema = {
   },
 };
 
+export type LLMProvider = "openai" | "openrouter" | "ollama";
+
 export type EnvConfig = {
   PORT: number;
   HOST: string;
   NODE_ENV: string;
   LOG_LEVEL: string;
-  LLM_PROVIDER: "openai" | "openrouter" | "ollama";
+  LLM_PROVIDER: LLMProvider;
   LLM_MODEL: string;
   OPENAI_API_KEY: string;
   OPENROUTER_API_KEY: string;

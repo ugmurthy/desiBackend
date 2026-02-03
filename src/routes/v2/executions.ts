@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
+import { error400Schema, error401Schema, error404Schema } from "./schemas";
 
 interface ExecutionIdParams {
   id: string;
@@ -14,36 +15,6 @@ interface ListExecutionsQuery {
 }
 
 // ============ Shared Schema Definitions ============
-
-const errorSchemas = {
-  unauthorized401: {
-    type: "object",
-    description: "Unauthorized",
-    properties: {
-      statusCode: { type: "integer", example: 401 },
-      error: { type: "string", example: "Unauthorized" },
-      message: { type: "string", example: "Invalid or missing authentication token" },
-    },
-  },
-  notFound404: {
-    type: "object",
-    description: "Execution not found",
-    properties: {
-      statusCode: { type: "integer", example: 404 },
-      error: { type: "string", example: "Not Found" },
-      message: { type: "string", example: "Execution not found" },
-    },
-  },
-  badRequest400: {
-    type: "object",
-    description: "Execution is not in a paused state",
-    properties: {
-      statusCode: { type: "integer", example: 400 },
-      error: { type: "string", example: "Bad Request" },
-      message: { type: "string", example: "Execution is not in a paused state. Current status: completed" },
-    },
-  },
-} as const;
 
 const executionIdParamSchema = {
   type: "object",
@@ -202,7 +173,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
               pagination: paginationSchema,
             },
           },
-          401: errorSchemas.unauthorized401,
+          401: error401Schema,
         },
       },
     },
@@ -248,8 +219,8 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
         params: executionIdParamSchema,
         response: {
           200: executionDetailSchema,
-          401: errorSchemas.unauthorized401,
-          404: errorSchemas.notFound404,
+          401: error401Schema,
+          404: error404Schema,
         },
       },
     },
@@ -297,8 +268,8 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
               },
             },
           },
-          401: errorSchemas.unauthorized401,
-          404: errorSchemas.notFound404,
+          401: error401Schema,
+          404: error404Schema,
         },
       },
     },
@@ -349,8 +320,8 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
               },
             },
           },
-          401: errorSchemas.unauthorized401,
-          404: errorSchemas.notFound404,
+          401: error401Schema,
+          404: error404Schema,
         },
       },
     },
@@ -395,8 +366,8 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
             type: "null",
             description: "Execution deleted successfully",
           },
-          401: errorSchemas.unauthorized401,
-          404: errorSchemas.notFound404,
+          401: error401Schema,
+          404: error404Schema,
         },
       },
     },
@@ -437,8 +408,8 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
             type: "string",
             description: "SSE event stream",
           },
-          401: errorSchemas.unauthorized401,
-          404: errorSchemas.notFound404,
+          401: error401Schema,
+          404: error404Schema,
         },
       },
     },
@@ -500,9 +471,9 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
               status: { type: "string", example: "running" },
             },
           },
-          400: errorSchemas.badRequest400,
-          401: errorSchemas.unauthorized401,
-          404: errorSchemas.notFound404,
+          400: error400Schema,
+          401: error401Schema,
+          404: error404Schema,
         },
       },
     },

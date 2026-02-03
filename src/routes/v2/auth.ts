@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { createApiKey, listApiKeys, revokeApiKey } from "../../services/api-key";
+import { error400Schema, error401Schema, error404Schema } from "./schemas";
 
 interface CreateApiKeyBody {
   name: string;
@@ -62,19 +63,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               },
             },
           },
-          401: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Authentication required" },
-            },
-            example: {
-              statusCode: 401,
-              error: "Unauthorized",
-              message: "Authentication required",
-            },
-          },
+          401: error401Schema,
         },
       },
     },
@@ -141,19 +130,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               ],
             },
           },
-          401: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Authentication required" },
-            },
-            example: {
-              statusCode: 401,
-              error: "Unauthorized",
-              message: "Authentication required",
-            },
-          },
+          401: error401Schema,
         },
       },
     },
@@ -227,32 +204,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               createdAt: "2024-01-15T10:30:00Z",
             },
           },
-          400: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "body/name must NOT have fewer than 1 characters" },
-            },
-            example: {
-              statusCode: 400,
-              error: "Bad Request",
-              message: "body/name must NOT have fewer than 1 characters",
-            },
-          },
-          401: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Authentication required" },
-            },
-            example: {
-              statusCode: 401,
-              error: "Unauthorized",
-              message: "Authentication required",
-            },
-          },
+          400: error400Schema,
+          401: error401Schema,
         },
       },
     },
@@ -297,36 +250,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           },
         },
         response: {
-          204: {
-            type: "null",
-            description: "API key successfully revoked",
-          },
-          401: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Authentication required" },
-            },
-            example: {
-              statusCode: 401,
-              error: "Unauthorized",
-              message: "Authentication required",
-            },
-          },
-          404: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "API key not found" },
-            },
-            example: {
-              statusCode: 404,
-              error: "Not Found",
-              message: "API key not found",
-            },
-          },
+          204: { type: "null", description: "API key successfully revoked" },
+          401: error401Schema,
+          404: error404Schema,
         },
       },
     },

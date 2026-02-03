@@ -110,6 +110,10 @@
       "service": "dags",
       "method": "create"
     },
+    "postApiV2DagsByIdResumeClarification": {
+      "service": "dags",
+      "method": "resume-clarification"
+    },
     "getApiV2DagsScheduled": {
       "service": "dags",
       "method": "getScheduled"

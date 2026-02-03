@@ -3,6 +3,7 @@ import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
 import { getUsage, getUsageSummary, type DateRange } from "../../services/billing";
 import type { UsageMetadata } from "../../db/billing-schema";
+import { error401SchemaExamples, errorResponseSchemaExamples } from "./schemas";
 
 interface ExecutionIdParams {
   id: string;
@@ -64,24 +65,8 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
               durationMs: { type: ["number", "null"], examples: [120000] },
             },
           },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "number", examples: [401] },
-              error: { type: "string", examples: ["Unauthorized"] },
-              message: { type: "string", examples: ["Invalid or missing authentication token"] },
-            },
-          },
-          404: {
-            type: "object",
-            description: "Execution not found",
-            properties: {
-              statusCode: { type: "number", examples: [404] },
-              error: { type: "string", examples: ["Not Found"] },
-              message: { type: "string", examples: ["Execution not found"] },
-            },
-          },
+          401: error401SchemaExamples,
+          404: errorResponseSchemaExamples(404, "Execution not found", "Execution not found"),
         },
       },
     },
@@ -202,24 +187,8 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
               createdAt: { type: "string", format: "date-time", examples: ["2024-01-10T08:00:00Z"] },
             },
           },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "number", examples: [401] },
-              error: { type: "string", examples: ["Unauthorized"] },
-              message: { type: "string", examples: ["Invalid or missing authentication token"] },
-            },
-          },
-          404: {
-            type: "object",
-            description: "DAG not found",
-            properties: {
-              statusCode: { type: "number", examples: [404] },
-              error: { type: "string", examples: ["Not Found"] },
-              message: { type: "string", examples: ["DAG not found"] },
-            },
-          },
+          401: error401SchemaExamples,
+          404: errorResponseSchemaExamples(404, "DAG not found", "DAG not found"),
         },
       },
     },
@@ -377,15 +346,7 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
               },
             },
           },
-          401: {
-            type: "object",
-            description: "Unauthorized",
-            properties: {
-              statusCode: { type: "number", examples: [401] },
-              error: { type: "string", examples: ["Unauthorized"] },
-              message: { type: "string", examples: ["Invalid or missing authentication token"] },
-            },
-          },
+          401: error401SchemaExamples,
         },
       },
     },

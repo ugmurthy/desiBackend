@@ -1,23 +1,23 @@
-import { getAdminDatabase, type Tenant, type TenantQuotas } from "../db/admin-schema";
+import { getAdminDatabase, type Tenant, type TenantQuotas, type TenantStatus, type TenantPlan } from "../db/admin-schema";
 import { initializeTenantUserSchema } from "../db/user-schema";
 import { initializeApiKeySchema } from "../db/api-key-schema";
 
 export interface CreateTenantInput {
   name: string;
   slug: string;
-  plan?: "free" | "pro" | "enterprise";
+  plan?: TenantPlan;
 }
 
 export interface UpdateTenantInput {
-  status?: "active" | "suspended" | "pending";
-  plan?: "free" | "pro" | "enterprise";
+  status?: TenantStatus;
+  plan?: TenantPlan;
   quotas?: TenantQuotas;
   name?: string;
 }
 
 export interface ListTenantsFilter {
-  status?: "active" | "suspended" | "pending";
-  plan?: "free" | "pro" | "enterprise";
+  status?: TenantStatus;
+  plan?: TenantPlan;
   limit?: number;
   offset?: number;
 }

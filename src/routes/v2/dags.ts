@@ -1,6 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
+import type { LLMProvider } from "../../config/env";
+import { error400Schema, error401Schema, error404Schema } from "./schemas";
 
 interface DagIdParams {
   id: string;
@@ -9,7 +11,7 @@ interface DagIdParams {
 interface CreateDagBody {
   goalText: string;
   agentName: string;
-  provider?: "openai" | "openrouter" | "ollama";
+  provider?: LLMProvider;
   model?: string;
   temperature?: number;
   maxTokens?: number;
@@ -36,7 +38,7 @@ interface ListDagsQuery {
 }
 
 interface ExecuteDagBody {
-  provider?: "openai" | "openrouter" | "ollama";
+  provider?: LLMProvider;
   model?: string;
 }
 
@@ -48,7 +50,7 @@ interface ExecuteDefinitionBody {
 interface RunExperimentsBody {
   goalText: string;
   agentName: string;
-  provider: "openai" | "openrouter" | "ollama";
+  provider: LLMProvider;
   models: string[];
   temperatures: number[];
   seed?: number;
@@ -68,15 +70,6 @@ const EXECUTION_RATE_LIMIT = {
 };
 
 // ============ Shared Schema Definitions ============
-
-const errorResponseSchema = {
-  type: "object",
-  properties: {
-    statusCode: { type: "integer", example: 400 },
-    error: { type: "string", example: "Bad Request" },
-    message: { type: "string", example: "Validation failed" },
-  },
-} as const;
 
 const dagIdParamSchema = {
   type: "object",
@@ -208,9 +201,9 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           201: dagSuccessResponseSchema,
           202: clarificationRequiredResponseSchema,
-          400: { description: "Invalid request body", ...errorResponseSchema },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
-          404: { description: "Agent not found", ...errorResponseSchema },
+          400: { description: "Invalid request body", ...error400Schema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          404: { description: "Agent not found", ...error404Schema },
         },
       },
     },
@@ -309,9 +302,9 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           201: { ...dagSuccessResponseSchema, description: "DAG created successfully after clarification" },
           202: { ...clarificationRequiredResponseSchema, description: "Additional clarification required" },
-          400: { description: "Invalid request body", ...errorResponseSchema },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
-          404: { description: "DAG not found", ...errorResponseSchema },
+          400: { description: "Invalid request body", ...error400Schema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          404: { description: "DAG not found", ...error404Schema },
         },
       },
     },
@@ -401,7 +394,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
               pagination: paginationSchema,
             },
           },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
         },
       },
     },
@@ -467,7 +460,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
               },
             },
           },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
         },
       },
     },
@@ -502,8 +495,8 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         params: dagIdParamSchema,
         response: {
           200: { description: "DAG retrieved successfully", ...dagResponseSchema },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
-          404: { description: "DAG not found", ...errorResponseSchema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          404: { description: "DAG not found", ...error404Schema },
         },
       },
     },
@@ -552,9 +545,9 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         },
         response: {
           200: { description: "DAG updated successfully", ...dagResponseSchema },
-          400: { description: "Invalid request body", ...errorResponseSchema },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
-          404: { description: "DAG not found", ...errorResponseSchema },
+          400: { description: "Invalid request body", ...error400Schema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          404: { description: "DAG not found", ...error404Schema },
         },
       },
     },
@@ -601,9 +594,9 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         params: dagIdParamSchema,
         response: {
           204: { description: "DAG deleted successfully", type: "null" },
-          400: { description: "Invalid request", ...errorResponseSchema },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
-          404: { description: "DAG not found", ...errorResponseSchema },
+          400: { description: "Invalid request", ...error400Schema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          404: { description: "DAG not found", ...error404Schema },
         },
       },
     },
@@ -656,8 +649,8 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         },
         response: {
           202: { ...executionStartedResponseSchema, description: "DAG execution started" },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
-          404: { description: "DAG not found", ...errorResponseSchema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          404: { description: "DAG not found", ...error404Schema },
         },
       },
     },
@@ -713,8 +706,8 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         },
         response: {
           202: { ...executionStartedResponseSchema, description: "DAG execution from definition started" },
-          400: { description: "Invalid definition or request body", ...errorResponseSchema },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
+          400: { description: "Invalid definition or request body", ...error400Schema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
         },
       },
     },
@@ -788,9 +781,9 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
               status: { type: "string", example: "running" },
             },
           },
-          400: { description: "Invalid request body", ...errorResponseSchema },
-          401: { description: "Unauthorized - missing or invalid authentication", ...errorResponseSchema },
-          404: { description: "Agent not found", ...errorResponseSchema },
+          400: { description: "Invalid request body", ...error400Schema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          404: { description: "Agent not found", ...error404Schema },
         },
       },
     },

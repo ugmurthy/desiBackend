@@ -29,7 +29,7 @@ const client = new ApiClient({
 
 try {
   // Create the DAG
-  const createResponse = await client.dags.list({})
+  const createResponse = await client.dags.list({limit:100})
   console.log(JSON.stringify(createResponse));
   
 } catch (error) {
@@ -43,7 +43,7 @@ try {
       if (status === 401) {
         console.error('Error: Unauthorized - Invalid or missing API token');
       } else if (status === 404) {
-        console.error(`Error: Agent '${agentName}' not found`);
+        console.error(`Error: 'DAG not found`);
       } else if (status === 400) {
         console.error(`Error: Bad Request - ${data?.message || data?.error || 'Unknown error'}`);
       } else {

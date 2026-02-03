@@ -4,7 +4,7 @@
  * Usage: bun run execute-goal-sdk.ts -f <filename>
  */
 
-import { ApiClient } from './desiClient';
+import { ApiClient } from '../desiClient';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 

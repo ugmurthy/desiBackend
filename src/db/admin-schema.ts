@@ -5,12 +5,15 @@ import { mkdirSync, existsSync } from "fs";
 import { runMigrations } from "./migrations";
 import { adminMigrations } from "./migrations/admin";
 
+export type TenantStatus = "active" | "suspended" | "pending";
+export type TenantPlan = "free" | "pro" | "enterprise";
+
 export interface Tenant {
   id: string;
   name: string;
   slug: string;
-  status: "active" | "suspended" | "pending";
-  plan: "free" | "pro" | "enterprise";
+  status: TenantStatus;
+  plan: TenantPlan;
   quotas: string; // JSON string
   createdAt: string;
   updatedAt: string;

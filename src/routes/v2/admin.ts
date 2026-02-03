@@ -12,18 +12,18 @@ import {
   type UpdateTenantInput,
   type ListTenantsFilter,
 } from "../../services/admin";
-import type { TenantQuotas } from "../../db/admin-schema";
+import type { TenantQuotas, TenantStatus, TenantPlan } from "../../db/admin-schema";
 
 interface CreateTenantBody {
   name: string;
   slug: string;
-  plan?: "free" | "pro" | "enterprise";
+  plan?: TenantPlan;
 }
 
 interface UpdateTenantBody {
   name?: string;
-  status?: "active" | "suspended" | "pending";
-  plan?: "free" | "pro" | "enterprise";
+  status?: TenantStatus;
+  plan?: TenantPlan;
   quotas?: TenantQuotas;
 }
 
@@ -32,11 +32,48 @@ interface TenantParams {
 }
 
 interface ListTenantsQuery {
-  status?: "active" | "suspended" | "pending";
-  plan?: "free" | "pro" | "enterprise";
+  status?: TenantStatus;
+  plan?: TenantPlan;
   limit?: string;
   offset?: string;
 }
+
+const quotasSchema = {
+  type: "object",
+  properties: {
+    maxUsers: { type: "number", example: 50 },
+    maxAgents: { type: "number", example: 10 },
+    maxExecutionsPerMonth: { type: "number", example: 10000 },
+    maxTokensPerMonth: { type: "number", example: 1000000 },
+  },
+} as const;
+
+const tenantResponseSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", example: "tnt_abc123" },
+    name: { type: "string", example: "Acme Corporation" },
+    slug: { type: "string", example: "acme-corp" },
+    status: { type: "string", enum: ["active", "suspended", "pending"], example: "active" },
+    plan: { type: "string", enum: ["free", "pro", "enterprise"], example: "pro" },
+    quotas: quotasSchema,
+    createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
+    updatedAt: { type: "string", example: "2024-01-20T14:45:00.000Z" },
+  },
+} as const;
+
+const errorResponseSchema = (statusCode: number, error: string, message: string) => ({
+  type: "object",
+  properties: {
+    statusCode: { type: "number", example: statusCode },
+    error: { type: "string", example: error },
+    message: { type: "string", example: message },
+  },
+} as const);
+
+const error401Schema = errorResponseSchema(401, "Unauthorized", "Admin authentication required");
+const error403Schema = errorResponseSchema(403, "Forbidden", "This action requires admin scope");
+const error404Schema = errorResponseSchema(404, "Not Found", "Tenant not found");
 
 async function ensureAdminScope(request: FastifyRequest, reply: FastifyReply) {
   const adminAuth = (request as FastifyRequest & { adminAuth: AdminAuthContext }).adminAuth;
@@ -86,51 +123,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             properties: {
               tenants: {
                 type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    id: { type: "string", example: "tnt_abc123" },
-                    name: { type: "string", example: "Acme Corporation" },
-                    slug: { type: "string", example: "acme-corp" },
-                    status: { type: "string", enum: ["active", "suspended", "pending"], example: "active" },
-                    plan: { type: "string", enum: ["free", "pro", "enterprise"], example: "pro" },
-                    quotas: {
-                      type: "object",
-                      properties: {
-                        maxUsers: { type: "number", example: 50 },
-                        maxAgents: { type: "number", example: 10 },
-                        maxExecutionsPerMonth: { type: "number", example: 10000 },
-                        maxTokensPerMonth: { type: "number", example: 1000000 },
-                      },
-                    },
-                    createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
-                    updatedAt: { type: "string", example: "2024-01-20T14:45:00.000Z" },
-                  },
-                },
+                items: tenantResponseSchema,
               },
               total: { type: "number", example: 42 },
               limit: { type: "number", example: 20 },
               offset: { type: "number", example: 0 },
             },
           },
-          401: {
-            description: "Admin authentication required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Admin authentication required" },
-            },
-          },
-          403: {
-            description: "Admin scope required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 403 },
-              error: { type: "string", example: "Forbidden" },
-              message: { type: "string", example: "This action requires admin scope" },
-            },
-          },
+          401: { description: "Admin authentication required", ...error401Schema },
+          403: { description: "Admin scope required", ...error403Schema },
         },
       },
     },
@@ -182,64 +183,11 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           },
         },
         response: {
-          201: {
-            description: "Tenant created successfully",
-            type: "object",
-            properties: {
-              id: { type: "string", example: "tnt_abc123" },
-              name: { type: "string", example: "Acme Corporation" },
-              slug: { type: "string", example: "acme-corp" },
-              status: { type: "string", enum: ["active", "suspended", "pending"], example: "pending" },
-              plan: { type: "string", enum: ["free", "pro", "enterprise"], example: "pro" },
-              quotas: {
-                type: "object",
-                properties: {
-                  maxUsers: { type: "number", example: 50 },
-                  maxAgents: { type: "number", example: 10 },
-                  maxExecutionsPerMonth: { type: "number", example: 10000 },
-                  maxTokensPerMonth: { type: "number", example: 1000000 },
-                },
-              },
-              createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
-              updatedAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
-            },
-          },
-          400: {
-            description: "Invalid request body",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "body must have required property 'name'" },
-            },
-          },
-          401: {
-            description: "Admin authentication required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Admin authentication required" },
-            },
-          },
-          403: {
-            description: "Admin scope required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 403 },
-              error: { type: "string", example: "Forbidden" },
-              message: { type: "string", example: "This action requires admin scope" },
-            },
-          },
-          409: {
-            description: "Tenant with slug already exists",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 409 },
-              error: { type: "string", example: "Conflict" },
-              message: { type: "string", example: "A tenant with this slug already exists" },
-            },
-          },
+          201: { description: "Tenant created successfully", ...tenantResponseSchema },
+          400: { description: "Invalid request body", ...errorResponseSchema(400, "Bad Request", "body must have required property 'name'") },
+          401: { description: "Admin authentication required", ...error401Schema },
+          403: { description: "Admin scope required", ...error403Schema },
+          409: { description: "Tenant with slug already exists", ...errorResponseSchema(409, "Conflict", "A tenant with this slug already exists") },
         },
       },
     },
@@ -296,55 +244,10 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           required: ["id"],
         },
         response: {
-          200: {
-            description: "Tenant retrieved successfully",
-            type: "object",
-            properties: {
-              id: { type: "string", example: "tnt_abc123" },
-              name: { type: "string", example: "Acme Corporation" },
-              slug: { type: "string", example: "acme-corp" },
-              status: { type: "string", enum: ["active", "suspended", "pending"], example: "active" },
-              plan: { type: "string", enum: ["free", "pro", "enterprise"], example: "pro" },
-              quotas: {
-                type: "object",
-                properties: {
-                  maxUsers: { type: "number", example: 50 },
-                  maxAgents: { type: "number", example: 10 },
-                  maxExecutionsPerMonth: { type: "number", example: 10000 },
-                  maxTokensPerMonth: { type: "number", example: 1000000 },
-                },
-              },
-              createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
-              updatedAt: { type: "string", example: "2024-01-20T14:45:00.000Z" },
-            },
-          },
-          401: {
-            description: "Admin authentication required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Admin authentication required" },
-            },
-          },
-          403: {
-            description: "Admin scope required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 403 },
-              error: { type: "string", example: "Forbidden" },
-              message: { type: "string", example: "This action requires admin scope" },
-            },
-          },
-          404: {
-            description: "Tenant not found",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Tenant not found" },
-            },
-          },
+          200: { description: "Tenant retrieved successfully", ...tenantResponseSchema },
+          401: { description: "Admin authentication required", ...error401Schema },
+          403: { description: "Admin scope required", ...error403Schema },
+          404: { description: "Tenant not found", ...error404Schema },
         },
       },
     },
@@ -395,76 +298,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             name: { type: "string", minLength: 1, example: "Acme Corporation Updated" },
             status: { type: "string", enum: ["active", "suspended", "pending"], example: "active" },
             plan: { type: "string", enum: ["free", "pro", "enterprise"], example: "enterprise" },
-            quotas: {
-              type: "object",
-              properties: {
-                maxUsers: { type: "number", example: 100 },
-                maxAgents: { type: "number", example: 25 },
-                maxExecutionsPerMonth: { type: "number", example: 50000 },
-                maxTokensPerMonth: { type: "number", example: 5000000 },
-              },
-            },
+            quotas: quotasSchema,
           },
         },
         response: {
-          200: {
-            description: "Tenant updated successfully",
-            type: "object",
-            properties: {
-              id: { type: "string", example: "tnt_abc123" },
-              name: { type: "string", example: "Acme Corporation Updated" },
-              slug: { type: "string", example: "acme-corp" },
-              status: { type: "string", enum: ["active", "suspended", "pending"], example: "active" },
-              plan: { type: "string", enum: ["free", "pro", "enterprise"], example: "enterprise" },
-              quotas: {
-                type: "object",
-                properties: {
-                  maxUsers: { type: "number", example: 100 },
-                  maxAgents: { type: "number", example: 25 },
-                  maxExecutionsPerMonth: { type: "number", example: 50000 },
-                  maxTokensPerMonth: { type: "number", example: 5000000 },
-                },
-              },
-              createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
-              updatedAt: { type: "string", example: "2024-01-25T09:15:00.000Z" },
-            },
-          },
-          400: {
-            description: "Invalid request body",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "body/status must be equal to one of the allowed values" },
-            },
-          },
-          401: {
-            description: "Admin authentication required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Admin authentication required" },
-            },
-          },
-          403: {
-            description: "Admin scope required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 403 },
-              error: { type: "string", example: "Forbidden" },
-              message: { type: "string", example: "This action requires admin scope" },
-            },
-          },
-          404: {
-            description: "Tenant not found",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Tenant not found" },
-            },
-          },
+          200: { description: "Tenant updated successfully", ...tenantResponseSchema },
+          400: { description: "Invalid request body", ...errorResponseSchema(400, "Bad Request", "body/status must be equal to one of the allowed values") },
+          401: { description: "Admin authentication required", ...error401Schema },
+          403: { description: "Admin scope required", ...error403Schema },
+          404: { description: "Tenant not found", ...error404Schema },
         },
       },
     },
@@ -518,59 +360,11 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           },
         },
         response: {
-          200: {
-            description: "Tenant suspended successfully",
-            type: "object",
-            properties: {
-              id: { type: "string", example: "tnt_abc123" },
-              name: { type: "string", example: "Acme Corporation" },
-              slug: { type: "string", example: "acme-corp" },
-              status: { type: "string", enum: ["active", "suspended", "pending"], example: "suspended" },
-              plan: { type: "string", enum: ["free", "pro", "enterprise"], example: "pro" },
-              quotas: {
-                type: "object",
-                properties: {
-                  maxUsers: { type: "number", example: 50 },
-                  maxAgents: { type: "number", example: 10 },
-                  maxExecutionsPerMonth: { type: "number", example: 10000 },
-                  maxTokensPerMonth: { type: "number", example: 1000000 },
-                },
-              },
-              createdAt: { type: "string", example: "2024-01-15T10:30:00.000Z" },
-              updatedAt: { type: "string", example: "2024-01-25T09:15:00.000Z" },
-            },
-          },
-          204: {
-            description: "Tenant deleted successfully",
-            type: "null",
-          },
-          401: {
-            description: "Admin authentication required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Admin authentication required" },
-            },
-          },
-          403: {
-            description: "Admin scope required",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 403 },
-              error: { type: "string", example: "Forbidden" },
-              message: { type: "string", example: "This action requires admin scope" },
-            },
-          },
-          404: {
-            description: "Tenant not found",
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Tenant not found" },
-            },
-          },
+          200: { description: "Tenant suspended successfully", ...tenantResponseSchema },
+          204: { description: "Tenant deleted successfully", type: "null" },
+          401: { description: "Admin authentication required", ...error401Schema },
+          403: { description: "Admin scope required", ...error403Schema },
+          404: { description: "Tenant not found", ...error404Schema },
         },
       },
     },

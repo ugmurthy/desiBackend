@@ -11,6 +11,7 @@ import {
 import { hashPassword, verifyPassword } from "../../utils/password";
 import { sendVerificationEmail, sendPasswordResetEmail, sendInviteEmail } from "../../services/email";
 import { authenticate, ensureRole, type AuthContext } from "../../middleware/authenticate";
+import { error400Schema, error401Schema, error403Schema, error404Schema, error409Schema, errorResponseSchema } from "./schemas";
 
 const MAX_SESSIONS_PER_USER = 2;
 
@@ -268,30 +269,9 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
               message: { type: "string", example: "Verification email sent" },
             },
           },
-          400: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "Invalid email format" },
-            },
-          },
-          404: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Tenant not found" },
-            },
-          },
-          409: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 409 },
-              error: { type: "string", example: "Conflict" },
-              message: { type: "string", example: "Email already registered" },
-            },
-          },
+          400: error400Schema,
+          404: error404Schema,
+          409: error409Schema,
         },
       },
     },
@@ -402,14 +382,7 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
               message: { type: "string", example: "Email verified successfully" },
             },
           },
-          400: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "Invalid or expired token" },
-            },
-          },
+          400: error400Schema,
         },
       },
     },
@@ -586,30 +559,9 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
               },
             },
           },
-          401: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid credentials" },
-            },
-          },
-          403: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 403 },
-              error: { type: "string", example: "Forbidden" },
-              message: { type: "string", example: "Email not verified. Please check your email for verification link." },
-            },
-          },
-          404: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 404 },
-              error: { type: "string", example: "Not Found" },
-              message: { type: "string", example: "Tenant not found" },
-            },
-          },
+          401: error401Schema,
+          403: error403Schema,
+          404: error404Schema,
         },
       },
     },
@@ -694,18 +646,8 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Invalidates the current session token.",
         security: [{ bearerAuth: [] }],
         response: {
-          204: {
-            type: "null",
-            description: "Successfully logged out",
-          },
-          401: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Invalid or missing session token" },
-            },
-          },
+          204: { type: "null", description: "Successfully logged out" },
+          401: error401Schema,
         },
       },
     },
@@ -868,14 +810,7 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
               message: { type: "string", example: "Password reset successfully" },
             },
           },
-          400: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "Invalid or expired reset token" },
-            },
-          },
+          400: error400Schema,
         },
       },
     },
@@ -975,38 +910,10 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
               userId: { type: "string", example: "user_abc123" },
             },
           },
-          400: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "Invalid email format" },
-            },
-          },
-          401: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 401 },
-              error: { type: "string", example: "Unauthorized" },
-              message: { type: "string", example: "Authentication required" },
-            },
-          },
-          403: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 403 },
-              error: { type: "string", example: "Forbidden" },
-              message: { type: "string", example: "Admin role required" },
-            },
-          },
-          409: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 409 },
-              error: { type: "string", example: "Conflict" },
-              message: { type: "string", example: "Email already exists in tenant" },
-            },
-          },
+          400: error400Schema,
+          401: error401Schema,
+          403: error403Schema,
+          409: error409Schema,
         },
       },
     },
@@ -1105,14 +1012,7 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
               },
             },
           },
-          400: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number", example: 400 },
-              error: { type: "string", example: "Bad Request" },
-              message: { type: "string", example: "Invalid or expired invite token" },
-            },
-          },
+          400: error400Schema,
         },
       },
     },

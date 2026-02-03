@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
+import { error401Schema } from "./schemas";
 
 const toolsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get(
@@ -37,19 +38,7 @@ const toolsRoutes: FastifyPluginAsync = async (fastify) => {
               ],
             },
           },
-          401: {
-            type: "object",
-            properties: {
-              statusCode: { type: "number" },
-              error: { type: "string" },
-              message: { type: "string" },
-            },
-            example: {
-              statusCode: 401,
-              error: "Unauthorized",
-              message: "Invalid or missing authentication",
-            },
-          },
+          401: error401Schema,
         },
       },
     },

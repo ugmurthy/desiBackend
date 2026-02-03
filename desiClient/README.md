@@ -67,6 +67,7 @@ const response = await client._default.healthCheck(/* params */);
 
 - `dags.list(options?)`
 - `dags.create(body)`
+- `dags.resumeClarification(id, body)`
 - `dags.getScheduled()`
 - `dags.getById(id)`
 - `dags.updateById(id, body)`

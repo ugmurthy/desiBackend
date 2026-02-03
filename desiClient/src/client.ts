@@ -369,6 +369,20 @@ class DagsService {
     return response.data;
   }
 
+  /** Resume DAG creation after clarification */
+  async resumeClarification(params: {
+    id: string;
+    body: Record<string, unknown>;
+  }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/dags/{id}/resume-clarification';
+    url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
+
+    const config: AxiosRequestConfig = {};
+
+    const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
+    return response.data;
+  }
+
   /** List scheduled DAGs */
   async getScheduled(): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/scheduled';

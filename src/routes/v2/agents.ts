@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
+import type { LLMProvider } from "../../config/env";
 
 interface AgentIdParams {
   id: string;
@@ -15,7 +16,7 @@ interface CreateAgentBody {
   version: string;
   systemPrompt: string;
   params?: {
-    provider?: "openai" | "openrouter" | "ollama";
+    provider?: LLMProvider;
     model?: string;
     metadata?: Record<string, unknown>;
   };
