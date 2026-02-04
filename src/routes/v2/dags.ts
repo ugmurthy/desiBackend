@@ -3,7 +3,7 @@ import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
 import type { LLMProvider } from "../../config/env";
 import { error400Schema, error401Schema, error404Schema } from "./schemas";
-import { insertResourceOwnership } from "../../db/user-schema";
+import { insertResourceOwnership, getOwnedResourceIds } from "../../db/user-schema";
 
 interface DagIdParams {
   id: string;
@@ -411,6 +411,9 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
 
+      const ownedDagIds = getOwnedResourceIds(auth.tenantDb, auth.user.id, "dag");
+      const ownedDagIdSet = new Set(ownedDagIds);
+
       const filter: Record<string, unknown> = {};
       if (status) {
         filter.status = status;
@@ -421,18 +424,19 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
       if (createdBefore) {
         filter.createdBefore = new Date(createdBefore);
       }
-      filter.limit = limit;
-      filter.offset = offset;
 
-      const dags = await client.dags.list(filter);
+      const allDags = await client.dags.list(filter);
+      const ownedDags = allDags.filter((dag) => ownedDagIdSet.has((dag as { id: string }).id));
+
+      const paginatedDags = ownedDags.slice(offset, offset + limit);
 
       return {
-        dags: dags.map((dag) => mapDagToListItem(dag as unknown as Record<string, unknown>)),
+        dags: paginatedDags.map((dag) => mapDagToListItem(dag as unknown as Record<string, unknown>)),
         pagination: {
-          total: dags.length,
+          total: ownedDags.length,
           limit,
           offset,
-          hasMore: dags.length === limit,
+          hasMore: offset + limit < ownedDags.length,
         },
       };
     }
