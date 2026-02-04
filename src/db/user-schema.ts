@@ -119,6 +119,33 @@ export function initializeAuthLogSchema(db: Database): void {
   `);
 }
 
+export type ResourceType = "dag" | "execution";
+
+export interface ResourceOwnership {
+  id: string;
+  userId: string;
+  resourceType: ResourceType;
+  resourceId: string;
+  createdAt: number;
+}
+
+export function initializeResourceOwnershipSchema(db: Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS resource_ownership (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      resourceType TEXT NOT NULL,
+      resourceId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_ownership_type_id 
+      ON resource_ownership(resourceType, resourceId);
+    CREATE INDEX IF NOT EXISTS idx_resource_ownership_user_type 
+      ON resource_ownership(userId, resourceType);
+  `);
+}
+
 /**
  * Generate a secure session token (32 bytes, base64url encoded)
  * Returns token with desi_session_ prefix
@@ -145,6 +172,7 @@ export async function initializeTenantUserSchema(tenantId: string): Promise<Data
   initializeApiKeySchema(db);
   initializeSessionSchema(db);
   initializeAuthLogSchema(db);
+  initializeResourceOwnershipSchema(db);
   
   // Run any pending migrations for this tenant
   runMigrations(db, tenantMigrations, `tenant:${tenantId}`);
