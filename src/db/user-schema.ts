@@ -146,6 +146,20 @@ export function initializeResourceOwnershipSchema(db: Database): void {
   `);
 }
 
+export function insertResourceOwnership(
+  db: Database,
+  userId: string,
+  resourceType: ResourceType,
+  resourceId: string
+): void {
+  const id = crypto.randomUUID();
+  const stmt = db.prepare(`
+    INSERT INTO resource_ownership (id, userId, resourceType, resourceId)
+    VALUES (?, ?, ?, ?)
+  `);
+  stmt.run(id, userId, resourceType, resourceId);
+}
+
 /**
  * Generate a secure session token (32 bytes, base64url encoded)
  * Returns token with desi_session_ prefix

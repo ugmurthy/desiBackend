@@ -3,6 +3,7 @@ import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
 import type { LLMProvider } from "../../config/env";
 import { error400Schema, error401Schema, error404Schema } from "./schemas";
+import { insertResourceOwnership } from "../../db/user-schema";
 
 interface DagIdParams {
   id: string;
@@ -250,12 +251,17 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         if ("dagId" in result) {
+          insertResourceOwnership(auth.tenantDb, auth.user.id, "dag", result.dagId);
           return reply.status(201).send({
             status: "success",
             dagId: result.dagId,
           });
         }
 
+        const dagResult = result.result as { id?: string };
+        if (dagResult?.id) {
+          insertResourceOwnership(auth.tenantDb, auth.user.id, "dag", dagResult.id);
+        }
         return reply.status(201).send({
           status: "success",
           result: result.result,
