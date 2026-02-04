@@ -225,6 +225,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: executionDetailSchema,
           401: error401Schema,
+          403: error403Schema,
           404: error404Schema,
         },
       },
@@ -238,6 +239,15 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const execution = await client.executions.get(id);
+        
+        if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "execution", id)) {
+          return reply.status(403).send({
+            statusCode: 403,
+            error: "Forbidden",
+            message: "You do not have access to this execution",
+          });
+        }
+        
         return mapExecutionToDetail(execution as unknown as Record<string, unknown>);
       } catch (error) {
         if (error instanceof Error && error.name === "NotFoundError") {
@@ -274,6 +284,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           401: error401Schema,
+          403: error403Schema,
           404: error404Schema,
         },
       },
@@ -287,6 +298,15 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const executionWithSteps = await client.executions.getWithSubSteps(id);
+        
+        if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "execution", id)) {
+          return reply.status(403).send({
+            statusCode: 403,
+            error: "Forbidden",
+            message: "You do not have access to this execution",
+          });
+        }
+        
         return {
           ...mapExecutionToDetail(executionWithSteps as unknown as Record<string, unknown>),
           subSteps: executionWithSteps.subSteps,
@@ -326,6 +346,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           401: error401Schema,
+          403: error403Schema,
           404: error404Schema,
         },
       },
@@ -336,6 +357,22 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
+
+      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "execution", id)) {
+        const execExists = await client.executions.get(id).then(() => true).catch(() => false);
+        if (!execExists) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Execution not found",
+          });
+        }
+        return reply.status(403).send({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "You do not have access to this execution",
+        });
+      }
 
       try {
         const subSteps = await client.executions.getSubSteps(id);
@@ -372,6 +409,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Execution deleted successfully",
           },
           401: error401Schema,
+          403: error403Schema,
           404: error404Schema,
         },
       },
@@ -382,6 +420,22 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
+
+      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "execution", id)) {
+        const execExists = await client.executions.get(id).then(() => true).catch(() => false);
+        if (!execExists) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Execution not found",
+          });
+        }
+        return reply.status(403).send({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "You do not have access to this execution",
+        });
+      }
 
       try {
         await client.executions.delete(id);
@@ -478,6 +532,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
           },
           400: error400Schema,
           401: error401Schema,
+          403: error403Schema,
           404: error404Schema,
         },
       },
@@ -491,6 +546,14 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const execution = await client.executions.get(id);
+        
+        if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "execution", id)) {
+          return reply.status(403).send({
+            statusCode: 403,
+            error: "Forbidden",
+            message: "You do not have access to this execution",
+          });
+        }
         
         if (execution.status !== "suspended" && execution.status !== "waiting") {
           return reply.status(400).send({
