@@ -1,0 +1,262 @@
+## Codebase Patterns
+- Use `type` imports for TypeScript types with verbatimModuleSyntax enabled (e.g., `import type { FastifyPluginAsync }`)
+- Run `bun run typecheck` to verify TypeScript correctness
+- SQLite: Use Bun's built-in `bun:sqlite` module for database operations
+- Admin DB path: `~/.desiAgent/admin.db`
+- Tenant DB path: `~/.desiAgent/tenants/{tenant_id}/agent.db` - use `getTenantDbPath(tenantId)` from user-schema.ts
+- Use bcrypt for password/API key hashing (cost factor 12)
+- All timestamps stored as Unix timestamps (seconds)
+- User schema initialization: Use `initializeTenantUserSchema(tenantId)` which handles directory creation and returns the DB
+---
+
+## 2026-01-22 - US-001
+Thread: https://ampcode.com/threads/T-019be5cf-5610-7741-b671-11973549e39a
+- Implemented Bootstrap CLI Command
+- Files changed: scripts/bootstrap.ts, package.json
+- **Learnings for future iterations:**
+  - The `--force` flag is parsed from `process.argv.slice(2)`
+  - CLI entry point is scripts/bootstrap.ts, to be extended by bootstrap service in US-009
+  - Script uses async main() pattern with proper exit codes
+---
+
+## 2026-01-22 - US-002
+Thread: https://ampcode.com/threads/T-019be5d0-90b8-701d-8699-d7a799023930
+- Implemented Admin Database Schema Extensions
+- Files changed: src/db/admin-schema.ts
+- **Learnings for future iterations:**
+  - All schema tables are created in single `initializeAdminDatabase()` call using multi-statement exec
+  - TypeScript interfaces defined for SuperAdmin, AdminApiKey, and Agent types
+  - SQLite booleans stored as INTEGER (0 or 1) - see `active` field in agents table
+  - UNIQUE constraint added using `UNIQUE(name, version)` syntax in table definition
+---
+
+## 2026-01-22 - US-003
+Thread: https://ampcode.com/threads/T-019be5d0-90b8-701d-8699-d7a799023930
+- Implemented Super Admin Creation service
+- Files changed: src/services/super-admin.ts
+- **Learnings for future iterations:**
+  - Super admin service is in src/services/super-admin.ts
+  - `createSuperAdmin()` returns `{ admin, created }` to indicate if admin was newly created or already existed
+  - Reads ADMIN_EMAIL and ADMIN_NAME from env vars, with defaults
+  - Uses bcrypt with cost factor 12 for password hashing (pattern in Codebase Patterns)
+  - `force` option updates existing admin instead of skipping
+---
+
+## 2026-01-22 - US-004
+Thread: https://ampcode.com/threads/T-019be5d4-f29d-75c5-85e9-a5fc01abede3
+- Implemented Admin API Key Generation service
+- Files changed: src/services/admin-api-key.ts
+- **Learnings for future iterations:**
+  - Admin API key service is in src/services/admin-api-key.ts
+  - Key format: `desi_sk_admin_{random32chars}`, prefix stored as `desi_sk_admin_xxxx` (first 4 chars of random)
+  - `createAdminApiKey()` returns `{ apiKey, fullKey, created }` - fullKey is null if key already exists
+  - Key saved to ~/.desiAgent/admin-key.txt with 600 permissions
+  - With `--force`, existing key is revoked (revokedAt set) before creating new one
+  - Uses `crypto.getRandomValues()` for secure random generation
+---
+
+## 2026-01-22 - US-005
+Thread: https://ampcode.com/threads/T-019be5d6-f6cc-77d7-af9b-ddacf33a60c3
+- Implemented User Table Schema for tenant databases
+- Files changed: src/db/user-schema.ts
+- **Learnings for future iterations:**
+  - User schema is in src/db/user-schema.ts
+  - `getTenantDbPath(tenantId)` returns path to tenant's agent.db file
+  - `initializeTenantUserSchema(tenantId)` creates tenant directory, database, and initializes user schema
+  - Tenant DB path follows pattern: ~/.desiAgent/tenants/{tenantId}/agent.db
+  - User role is typed as `"admin" | "member" | "viewer"`
+---
+
+## 2026-01-22 - US-006
+Thread: https://ampcode.com/threads/T-019be5d8-671a-74d5-92d2-5f95c0039be2
+- Implemented Example Agents CSV File
+- Files changed: scripts/example-agents.csv
+- **Learnings for future iterations:**
+  - CSV file uses comment lines starting with `#` for documentation
+  - Agent seed file location is `~/.desiAgent/seed/agents.csv`
+  - Example includes 3 sample agents: translator, code-reviewer, summarizer
+  - Metadata field can be empty or contain JSON string with double-escaped quotes for CSV
+---
+
+## 2026-01-22 - US-007
+Thread: https://ampcode.com/threads/T-019be5d9-5786-704a-b20b-e51396d06df5
+- Implemented Agents Seeding from CSV
+- Files changed: src/services/agents-seed.ts
+- **Learnings for future iterations:**
+  - Agent seeding service is in src/services/agents-seed.ts
+  - `seedAgentsFromCSV()` returns `{ inserted, skipped, errors }` summary
+  - CSV parsing handles quoted fields with escaped double-quotes (doubled quotes inside quoted strings)
+  - Uses crypto.getRandomValues() for UUID generation
+  - Handles UNIQUE constraint gracefully by catching SQLite errors and counting as skipped
+  - Missing CSV file is handled gracefully with warning log
+---
+
+## 2026-01-22 - US-008
+Thread: https://ampcode.com/threads/T-019be5db-0ad6-7179-a3a0-1c5a199d02c5
+- Implemented Default Tenant Creation service
+- Files changed: src/services/default-tenant.ts
+- **Learnings for future iterations:**
+  - Default tenant service is in src/services/default-tenant.ts
+  - `createDefaultTenant()` returns `{ tenant, created }` to indicate if tenant was newly created
+  - Default tenant uses id, name, and slug all set to "default"
+  - Uses `initializeTenantUserSchema()` from user-schema.ts to create and initialize tenant DB
+  - Force mode updates existing tenant and re-initializes the database
+  - Tenant DB path: ~/.desiAgent/tenants/default/agent.db
+---
+
+## 2026-01-22 - US-009
+Thread: https://ampcode.com/threads/T-019be5dc-8392-74c7-9162-77d151f96b9f
+- Implemented Bootstrap Service Logic
+- Files changed: src/services/bootstrap.ts, scripts/bootstrap.ts
+- **Learnings for future iterations:**
+  - Bootstrap service is in src/services/bootstrap.ts
+  - `runBootstrap({ force })` orchestrates all initialization steps and returns a summary
+  - CLI in scripts/bootstrap.ts now imports and calls `runBootstrap()`
+  - Bootstrap creates directory structure: ~/.desiAgent/, ~/.desiAgent/seed/, ~/.desiAgent/tenants/
+  - Summary object contains: adminCreated, apiKeyCreated, agentsInserted, agentsSkipped, agentErrors, tenantCreated
+---
+
+## 2026-01-22 - US-010
+Thread: https://ampcode.com/threads/T-019be5dd-d144-752e-b7b3-0d2ab8fb777b
+- Verified Bootstrap Idempotency - all acceptance criteria already met by previous implementations
+- Files changed: None (verification only)
+- **Verification performed:**
+  - Ran bootstrap twice without --force → existing data preserved, agents skipped via UNIQUE constraint
+  - Ran bootstrap with --force → API key regenerated (old key revoked), admin updated, tenant re-initialized
+  - Clear console output shows "Created" vs "Skipped (exists)" for each component
+  - Typecheck passes
+- **Learnings for future iterations:**
+  - Idempotency is built into each service layer (super-admin, admin-api-key, agents-seed, default-tenant)
+  - Agent uniqueness enforced by SQLite UNIQUE(name, version) constraint, caught and counted as "skipped"
+  - Copy scripts/example-agents.csv to ~/.desiAgent/seed/agents.csv to test agent seeding
+---
+
+
+## 2026-01-27 - US-001
+Thread: https://ampcode.com/threads/T-019bff6a-2bf1-70dc-919e-dfc3a7039f20
+- Installed @fastify/swagger and @scalar/fastify-api-reference packages
+- Configured Swagger plugin with OpenAPI 3.0.3 spec in src/app.ts
+- Configured Scalar UI at /api/v2/docs with JSON endpoint at /api/v2/docs/json
+- Added API info (title: desiBackend API, version: 2.0.0, description)
+- Defined all route tags (Health, Authentication, Users, Agents, DAGs, Executions, Tools, Costs, Billing, Admin)
+- Files changed: package.json, bun.lock, src/app.ts
+- **Learnings for future iterations:**
+  - Scalar automatically gets OpenAPI spec from @fastify/swagger when registered
+  - Use `openApiDocumentEndpoints` to customize where JSON/YAML are served (defaults to /openapi.json, /openapi.yaml)
+  - Pre-existing typecheck errors in scripts/create-api-key.ts are unrelated to swagger changes
+---
+
+## 2026-01-28 - US-002
+Thread: https://ampcode.com/threads/T-019c0238-deae-71ad-b017-f18d4e6d8a1e
+- Added OpenAPI schema definitions to all 10 route modules
+- Files changed: src/routes/v2/auth.ts, users.ts, agents.ts, executions.ts, dags.ts, tools.ts, billing.ts, costs.ts, admin.ts, health.ts
+- 46 total routes documented with tags, summaries, descriptions
+- All routes have response schemas with proper status codes (200, 201, 202, 204, 400, 401, 403, 404, 409, 500)
+- Example values included in all request/response schemas
+- **Learnings for future iterations:**
+  - OpenAPI schemas in Fastify are added via the `schema` property in route options
+  - Use `tags: ["TagName"]` to group endpoints in Swagger UI
+  - Include `summary`, `description`, and `response` with status codes and examples
+  - Pre-existing typecheck errors in scripts/create-api-key.ts are unrelated to route changes
+  - Response schemas should include error responses (401, 404, etc.) with statusCode, error, message properties
+---
+
+## 2026-02-01 - US-001 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
+- Added sessions table to tenant database with columns: id, userId, token (unique), expiresAt, createdAt, updatedAt
+- Added indexes on token, userId, and expiresAt for fast lookups
+- Created Session TypeScript interface
+- Created initializeSessionSchema() function called during tenant initialization
+- Added generateSessionToken() function using 32 bytes + base64url encoding with desi_session_ prefix
+- Files changed: src/db/user-schema.ts
+- **Learnings for future iterations:**
+  - Sessions table uses INTEGER timestamps (strftime('%s', 'now')) for Unix epoch storage
+  - Session tokens use base64url encoding (Buffer.from().toString("base64url")) for URL-safe tokens
+  - Foreign key with ON DELETE CASCADE ensures sessions are cleaned up when user is deleted
+---
+
+## 2026-02-01 - US-002 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
+- Added password and email verification fields to User interface and users table
+- Fields: passwordHash, emailVerified, emailVerificationToken, emailVerificationExpiry, passwordResetToken, passwordResetExpiry, inviteToken, inviteExpiry
+- Created src/utils/password.ts with Argon2id hashing via Bun.password API
+- Files changed: src/db/user-schema.ts, src/utils/password.ts
+- **Learnings for future iterations:**
+  - Bun.password.hash() with algorithm: "argon2id" provides built-in Argon2 support
+  - SQLite booleans stored as INTEGER (0/1), use emailVerified INTEGER NOT NULL DEFAULT 0
+  - Token expiry fields use INTEGER for Unix timestamps
+---
+
+## 2026-02-01 - US-003 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
+- Added auth_logs table and AuthLog interface for security auditing
+- Columns: id, tenantId, email, event (login_success/login_failed), ipAddress, userAgent, createdAt
+- Added indexes on tenantId, email, event, createdAt
+- Created initializeAuthLogSchema() called during tenant DB initialization
+- Files changed: src/db/user-schema.ts
+- **Learnings for future iterations:**
+  - AuthLogEvent type is "login_success" | "login_failed"
+  - auth_logs table is tenant-scoped but includes tenantId for cross-tenant queries
+---
+
+## 2026-02-01 - US-004 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c197d-92d0-7618-9439-b469f90f044d
+- Created email service abstraction in src/services/email.ts
+- Implemented EmailProvider interface with pluggable providers
+- Created ConsoleEmailProvider for development (logs to console)
+- Functions: sendVerificationEmail, sendPasswordResetEmail, sendInviteEmail, sendEmailChangeNotification
+- All emails include tenant name and appropriate links with HTML and text versions
+- Files changed: src/services/email.ts
+- **Learnings for future iterations:**
+  - Use setEmailProvider() to swap in production email provider (e.g., SendGrid, Postmark)
+  - Email templates include both HTML and plain text versions
+  - Invite emails expire in 7 days, verification in 24h, password reset in 1h
+---
+
+## 2026-02-01 - US-005, US-006, US-007 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c1984-09c3-7347-8324-53773cd97d96
+- Implemented user self-registration, email verification, and login endpoints
+- Created src/routes/v2/auth-session.ts with all three endpoints
+- Added BASE_URL to env config for generating email verification links
+- Registered auth-session routes in app.ts
+- Files changed: src/config/env.ts, src/routes/v2/auth-session.ts, src/app.ts
+- **Endpoints implemented:**
+  - POST /auth/register/:tenantSlug - creates user, sends verification email
+  - GET /auth/verify-email/:token - verifies email, clears token
+  - POST /auth/login/:tenantSlug - authenticates user, creates session, logs auth events
+- **Learnings for future iterations:**
+  - Use UserRow interface for raw SQLite rows, then convert with rowToUser() to handle emailVerified boolean conversion
+  - SQLite stores booleans as 0/1, must convert when reading into TypeScript types
+  - Auth logs use logAuthEvent() helper with request for IP/userAgent extraction
+  - Session tokens use generateSessionToken() from user-schema.ts with desi_session_ prefix
+---
+
+## 2026-02-01 - US-008, US-009, US-010, US-011 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c1987-6cc0-7261-b113-adc179bb5521
+- Implemented session limit enforcement, session-based auth, logout, and password reset request
+- Files changed: src/middleware/authenticate.ts, src/routes/v2/auth-session.ts, src/types/fastify.d.ts
+- **US-008:** enforceMaxSessions() deletes oldest sessions when user has >= 2 active sessions
+- **US-009:** Middleware detects token type by prefix (desi_session_* vs desi_sk_*), validates sessions, extends expiry (sliding window)
+- **US-010:** POST /auth/logout - deletes session, returns 204
+- **US-011:** POST /auth/forgot-password/:tenantSlug - always returns 200, sends reset email if user exists
+- **Learnings for future iterations:**
+  - AuthContext now includes authType: 'api_key' | 'session' and apiKey is nullable
+  - Remember to update src/types/fastify.d.ts when changing AuthContext interface
+  - lookupSessionToken() searches all tenant DBs for the session token
+  - Session sliding window: extendSessionExpiry() adds 7 days on each valid request
+---
+
+## 2026-02-01 - US-012, US-013, US-014 (Email/Password Auth)
+Thread: https://ampcode.com/threads/T-019c198b-c11f-7349-a55d-97753c477629
+- Implemented password reset, admin invite, and accept invite endpoints
+- Files changed: src/routes/v2/auth-session.ts, tasks/prd.json
+- **US-012:** POST /auth/reset-password - validates token, updates password hash, invalidates all sessions
+- **US-013:** POST /auth/invite - admin-only endpoint, creates user with no password, sends invite email
+- **US-014:** POST /auth/accept-invite/:token - validates invite token (7 day expiry), sets password, marks email verified, creates session
+- **Learnings for future iterations:**
+  - Import authenticate and ensureRole from middleware directly, don't use fastify.authenticate
+  - Use AuthContext type for auth object typing: `(request as typeof request & { auth: AuthContext }).auth`
+  - getUserByPasswordResetToken() and getUserByInviteToken() helper functions added for token lookups
+  - Password reset invalidates ALL sessions for the user (security requirement)
+  - Invite flow: admin creates user with inviteToken → user accepts with password → emailVerified set to true
+---

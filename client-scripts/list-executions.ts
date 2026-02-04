@@ -61,7 +61,8 @@ try {
   
   //console.log(JSON.stringify(createResponse));
   for (const execution of executions) {
-    console.log(chalk.yellow(`${execution.id}, ${execution.dagId}, ${execution.primaryIntent}`))
+    console.log(chalk.yellow(`Objective: ${execution.primaryIntent}`))
+    console.log(chalk.dim(`${execution.id}, ${execution.dagId}`))
     const {subSteps} = await client.executions.getSubSteps({id:execution.id})
     for (const step of subSteps) {
       console.log(chalk.green(`╰─${step.taskId} : ${step.status} ${step.toolOrPromptName}`));

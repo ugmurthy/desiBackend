@@ -43,10 +43,6 @@ interface ExecuteDagBody {
   model?: string;
 }
 
-interface ExecuteDefinitionBody {
-  definition: Record<string, unknown>;
-  originalGoalText: string;
-}
 
 interface RunExperimentsBody {
   goalText: string;
@@ -750,66 +746,6 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             statusCode: 404,
             error: "Not Found",
             message: "DAG not found",
-          });
-        }
-        throw error;
-      }
-    }
-  );
-
-  fastify.post<{ Body: ExecuteDefinitionBody }>(
-    "/dags/execute-definition",
-    {
-      ...EXECUTION_RATE_LIMIT,
-      preHandler: [authenticate],
-      schema: {
-        tags: ["DAGs"],
-        summary: "Execute from definition",
-        description: "Executes a DAG directly from a provided definition without saving it first. Useful for testing or one-off executions.",
-        body: {
-          type: "object",
-          required: ["definition", "originalGoalText"],
-          properties: {
-            definition: {
-              type: "object",
-              example: {
-                nodes: [{ id: "node1", type: "task", config: {} }],
-                edges: [],
-              },
-            },
-            originalGoalText: { type: "string", minLength: 1, example: "Analyze sales data for Q4" },
-          },
-        },
-        response: {
-          202: { ...executionStartedResponseSchema, description: "DAG execution from definition started" },
-          400: { description: "Invalid definition or request body", ...error400Schema },
-          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
-        },
-      },
-    },
-    async (request, reply) => {
-      const auth = request.auth!;
-      const { definition, originalGoalText } = request.body;
-
-      const clientService = getTenantClientService();
-      const client = await clientService.getClient(auth.tenant.id);
-
-      try {
-        const result = await client.dags.executeDefinition({
-          definition,
-          originalGoalText,
-        });
-        insertResourceOwnership(auth.tenantDb, auth.user.id, "execution", result.id);
-        return reply.status(202).send({
-          id: result.id,
-          status: result.status,
-        });
-      } catch (error) {
-        if (error instanceof Error && error.name === "ValidationError") {
-          return reply.status(400).send({
-            statusCode: 400,
-            error: "Bad Request",
-            message: error.message,
           });
         }
         throw error;
