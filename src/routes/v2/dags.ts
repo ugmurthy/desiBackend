@@ -174,6 +174,10 @@ function mapDagToListItem(dag: Record<string, unknown>) {
 
 // ============ Routes ============
 
+interface ExecutionIdParams {
+  executionId: string;
+}
+
 const dagsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: CreateDagBody }>(
     "/dags",
@@ -894,6 +898,129 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         }
         throw error;
       }
+    }
+  );
+
+  fastify.get<{ Params: ExecutionIdParams }>(
+    "/dags/executions/:executionId",
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ["DAGs"],
+        summary: "Get DAG executions by execution ID",
+        description: "Given any execution ID, looks up the associated DAG and returns all executions for that DAG.",
+        params: {
+          type: "object",
+          required: ["executionId"],
+          properties: {
+            executionId: { type: "string", example: "exec-123" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "DAG info with all its executions",
+            properties: {
+              dagId: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
+              dagTitle: { type: "string", example: "Analyze sales data" },
+              dagStatus: { type: "string", example: "active" },
+              executions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    status: { type: "string" },
+                    startedAt: { type: "string", format: "date-time" },
+                    completedAt: { type: "string", format: "date-time", nullable: true },
+                    createdAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "Unauthorized", ...error401Schema },
+          403: { description: "Forbidden - user does not own this execution", ...error403Schema },
+          404: { description: "Execution not found", ...error404Schema },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { executionId } = request.params;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      let execution;
+      try {
+        execution = await client.executions.get(executionId);
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Execution not found",
+          });
+        }
+        throw error;
+      }
+
+      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "execution", executionId)) {
+        return reply.status(403).send({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "You do not have access to this execution",
+        });
+      }
+
+      const dagId = execution.dagId;
+      
+      if (!dagId) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: "Execution has no associated DAG",
+        });
+      }
+      
+      let dag;
+      try {
+        dag = await client.dags.get(dagId);
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Associated DAG not found",
+          });
+        }
+        throw error;
+      }
+
+      const ownedExecutionIds = getOwnedResourceIds(auth.tenantDb, auth.user.id, "execution");
+      const ownedExecutionIdSet = new Set(ownedExecutionIds);
+
+      const allDagExecutions = await client.executions.list({ dagId: dagId });
+      const ownedDagExecutions = allDagExecutions.filter((exec) => 
+        ownedExecutionIdSet.has((exec as { id: string }).id)
+      );
+
+      return {
+        dagId: dag.id,
+        dagTitle: dag.dagTitle,
+        dagStatus: dag.status,
+        executions: ownedDagExecutions.map((exec) => {
+          const e = exec as unknown as Record<string, unknown>;
+          return {
+            id: e.id,
+            status: e.status,
+            startedAt: e.startedAt,
+            completedAt: e.completedAt,
+            createdAt: e.createdAt,
+          };
+        }),
+      };
     }
   );
 };
