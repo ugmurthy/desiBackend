@@ -13,6 +13,7 @@ import usersRoutes from "./routes/v2/users";
 import agentsRoutes from "./routes/v2/agents";
 import dagsRoutes from "./routes/v2/dags";
 import executionsRoutes from "./routes/v2/executions";
+import artifactsRoutes from "./routes/v2/artifacts";
 import toolsRoutes from "./routes/v2/tools";
 import costsRoutes from "./routes/v2/costs";
 import billingRoutes from "./routes/v2/billing";
@@ -106,6 +107,7 @@ export async function buildApp() {
         { name: "Agents", description: "Agent configuration and management" },
         { name: "DAGs", description: "Directed Acyclic Graph management" },
         { name: "Executions", description: "Agent execution management" },
+        { name: "Artifacts", description: "File artifacts from executions" },
         { name: "Tools", description: "Tool management endpoints" },
         { name: "Costs", description: "Cost tracking endpoints" },
         { name: "Billing", description: "Billing and usage endpoints" },
@@ -148,6 +150,7 @@ export async function buildApp() {
   await app.register(agentsRoutes, { prefix: "/api/v2" });
   await app.register(dagsRoutes, { prefix: "/api/v2" });
   await app.register(executionsRoutes, { prefix: "/api/v2" });
+  await app.register(artifactsRoutes, { prefix: "/api/v2" });
   await app.register(toolsRoutes, { prefix: "/api/v2" });
   await app.register(costsRoutes, { prefix: "/api/v2" });
   await app.register(billingRoutes, { prefix: "/api/v2" });
