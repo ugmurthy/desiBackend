@@ -160,6 +160,34 @@ export function insertResourceOwnership(
   stmt.run(id, userId, resourceType, resourceId);
 }
 
+export function checkResourceOwnership(
+  db: Database,
+  userId: string,
+  resourceType: ResourceType,
+  resourceId: string
+): boolean {
+  const stmt = db.prepare(`
+    SELECT 1 FROM resource_ownership
+    WHERE userId = ? AND resourceType = ? AND resourceId = ?
+    LIMIT 1
+  `);
+  const result = stmt.get(userId, resourceType, resourceId);
+  return result !== null && result !== undefined;
+}
+
+export function getOwnedResourceIds(
+  db: Database,
+  userId: string,
+  resourceType: ResourceType
+): string[] {
+  const stmt = db.prepare(`
+    SELECT resourceId FROM resource_ownership
+    WHERE userId = ? AND resourceType = ?
+  `);
+  const rows = stmt.all(userId, resourceType) as { resourceId: string }[];
+  return rows.map((row) => row.resourceId);
+}
+
 /**
  * Generate a secure session token (32 bytes, base64url encoded)
  * Returns token with desi_session_ prefix
