@@ -39,5 +39,19 @@ Thread: https://ampcode.com/threads/T-019c280b-5d12-743e-ad6b-b0ddeaf5f1c6
   - Check existence before ownership for proper 404 vs 403 ordering
   - execution.dagId can be null, always guard against it
   - When casting SDK types, use `as unknown as T` for complex type conversions
+- Migration scripts go in scripts/ directory and may need `git add -f` due to .gitignore
+---
+
+## 2026-02-04 - US-011
+Thread: https://ampcode.com/threads/T-019c281d-02c8-72b8-888d-b73332c35f17
+- Created migration script scripts/migrate-ownership.ts
+- Script iterates all tenant DBs, finds user by email, assigns ownership of all DAGs and executions
+- Added npm script: `bun run migrate:ownership`
+- Script is idempotent (checks for existing ownership before insert)
+- Files changed: scripts/migrate-ownership.ts, package.json
+- **Learnings for future iterations:**
+  - Scripts directory may be in .gitignore, use `git add -f` to force add
+  - Tenant DBs are at ~/.desiAgent/tenants/{tenantId}/agent.db
+  - initializeResourceOwnershipSchema() creates table if missing (useful for migration)
 ---
 
