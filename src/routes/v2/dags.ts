@@ -134,6 +134,25 @@ const executionStartedResponseSchema = {
   },
 } as const;
 
+const createAndExecuteSuccessResponseSchema = {
+  description: "DAG created and execution started",
+  type: "object",
+  properties: {
+    status: { type: "string", example: "success" },
+    dagId: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
+    executionId: { type: "string", example: "exec_EbvukFKKz6P4CveL-_sj_" },
+  },
+} as const;
+
+const validationErrorResponseSchema = {
+  description: "Validation error occurred",
+  type: "object",
+  properties: {
+    status: { type: "string", example: "validation_error" },
+    dagId: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
+  },
+} as const;
+
 const paginationSchema = {
   type: "object",
   properties: {
@@ -268,6 +287,119 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           usage: result.usage,
           generationStats: result.generationStats,
           attempts: result.attempts,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: error.message,
+          });
+        }
+        if (error instanceof Error && error.name === "ValidationError") {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: "Bad Request",
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    }
+  );
+
+  fastify.post<{ Body: CreateDagBody }>(
+    "/create-execute",
+    {
+      ...EXECUTION_RATE_LIMIT,
+      preHandler: [authenticate],
+      schema: {
+        tags: ["DAGs"],
+        summary: "Create DAG and execute in one step",
+        description: "Creates a new DAG from a goal text and immediately starts execution. Returns the DAG ID and execution ID on success, or clarification/validation status if needed.",
+        body: {
+          type: "object",
+          required: ["goalText", "agentName"],
+          properties: {
+            goalText: { type: "string", minLength: 1, example: "Analyze quarterly sales data and generate insights" },
+            agentName: { type: "string", minLength: 1, example: "data-analyst" },
+            provider: { type: "string", enum: ["openai", "openrouter", "ollama"], example: "openai" },
+            model: { type: "string", example: "gpt-4" },
+            temperature: { type: "number", minimum: 0, maximum: 2, example: 0.7 },
+            maxTokens: { type: "integer", minimum: 1, example: 4096 },
+            seed: { type: "integer", example: 42 },
+            cronSchedule: { type: "string", example: "0 9 * * 1" },
+            scheduleActive: { type: "boolean", example: true },
+            timezone: { type: "string", example: "America/New_York" },
+          },
+        },
+        response: {
+          201: createAndExecuteSuccessResponseSchema,
+          202: clarificationRequiredResponseSchema,
+          400: validationErrorResponseSchema,
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          404: { description: "Agent not found", ...error404Schema },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const {
+        goalText,
+        agentName,
+        provider,
+        model,
+        temperature,
+        maxTokens,
+        seed,
+        cronSchedule,
+        scheduleActive,
+        timezone,
+      } = request.body;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      try {
+        const result = await client.dags.createAndExecuteFromGoal({
+          goalText,
+          agentName,
+          provider,
+          model,
+          temperature,
+          maxTokens,
+          seed,
+          cronSchedule,
+          scheduleActive,
+          timezone,
+        });
+
+        if (result.status === "clarification_required") {
+          const clarificationResult = result as { status: "clarification_required"; dagId: string; clarificationQuery: string };
+          insertResourceOwnership(auth.tenantDb, auth.user.id, "dag", clarificationResult.dagId);
+          return reply.status(202).send({
+            status: "clarification_required",
+            dagId: clarificationResult.dagId,
+            clarificationQuery: clarificationResult.clarificationQuery,
+          });
+        }
+
+        if (result.status === "validation_error") {
+          const validationResult = result as { status: "validation_error"; dagId: string };
+          insertResourceOwnership(auth.tenantDb, auth.user.id, "dag", validationResult.dagId);
+          return reply.status(400).send({
+            status: "validation_error",
+            dagId: validationResult.dagId,
+          });
+        }
+
+        const executionResult = result as { status: string; dagId: string; executionId: string };
+        insertResourceOwnership(auth.tenantDb, auth.user.id, "dag", executionResult.dagId);
+        insertResourceOwnership(auth.tenantDb, auth.user.id, "execution", executionResult.executionId);
+        return reply.status(201).send({
+          status: executionResult.status,
+          dagId: executionResult.dagId,
+          executionId: executionResult.executionId,
         });
       } catch (error) {
         if (error instanceof Error && error.name === "NotFoundError") {
@@ -837,21 +969,15 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.get<{ Params: ExecutionIdParams }>(
-    "/dags/executions/:executionId",
+  fastify.get<{ Params: DagIdParams }>(
+    "/dags/executions/:id",
     {
       preHandler: [authenticate],
       schema: {
         tags: ["DAGs"],
-        summary: "Get DAG executions by execution ID",
-        description: "Given any execution ID, looks up the associated DAG and returns all executions for that DAG.",
-        params: {
-          type: "object",
-          required: ["executionId"],
-          properties: {
-            executionId: { type: "string", example: "exec-123" },
-          },
-        },
+        summary: "Get DAG executions by DAG ID",
+        description: "Given a DAG ID, returns the DAG info and all executions for that DAG.",
+        params: dagIdParamSchema,
         response: {
           200: {
             type: "object",
@@ -876,50 +1002,26 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           401: { description: "Unauthorized", ...error401Schema },
-          403: { description: "Forbidden - user does not own this execution", ...error403Schema },
-          404: { description: "Execution not found", ...error404Schema },
+          403: { description: "Forbidden - user does not own this DAG", ...error403Schema },
+          404: { description: "DAG not found", ...error404Schema },
         },
       },
     },
     async (request, reply) => {
       const auth = request.auth!;
-      const { executionId } = request.params;
+      const { id: dagId } = request.params;
+
+      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "dag", dagId)) {
+        return reply.status(403).send({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "You do not have access to this DAG",
+        });
+      }
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
 
-      let execution;
-      try {
-        execution = await client.executions.get(executionId);
-      } catch (error) {
-        if (error instanceof Error && error.name === "NotFoundError") {
-          return reply.status(404).send({
-            statusCode: 404,
-            error: "Not Found",
-            message: "Execution not found",
-          });
-        }
-        throw error;
-      }
-
-      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "execution", executionId)) {
-        return reply.status(403).send({
-          statusCode: 403,
-          error: "Forbidden",
-          message: "You do not have access to this execution",
-        });
-      }
-
-      const dagId = execution.dagId;
-      
-      if (!dagId) {
-        return reply.status(404).send({
-          statusCode: 404,
-          error: "Not Found",
-          message: "Execution has no associated DAG",
-        });
-      }
-      
       let dag;
       try {
         dag = await client.dags.get(dagId);
@@ -928,7 +1030,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(404).send({
             statusCode: 404,
             error: "Not Found",
-            message: "Associated DAG not found",
+            message: "DAG not found",
           });
         }
         throw error;
