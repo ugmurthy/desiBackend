@@ -27,3 +27,17 @@ Thread: https://ampcode.com/threads/T-019c2805-760b-741e-9793-7c060ea94658
   - Pagination needs to be applied after ownership filtering, not before
 ---
 
+## 2026-02-04 - US-006, US-007, US-008, US-009, US-010
+Thread: https://ampcode.com/threads/T-019c280b-5d12-743e-ad6b-b0ddeaf5f1c6
+- US-006: Added 403 ownership checks to GET/PATCH/DELETE /dags/:id and POST /dags/:id/execute
+- US-007: Updated GET /executions to filter by ownership using getOwnedResourceIds + Set filtering
+- US-008: Added 403 ownership checks to all single execution endpoints (get, details, sub-steps, delete, resume)
+- US-009: Created new /artifacts/:userId route to list file artifacts from readFile/writeFile tools
+- US-010: Created new /dags/executions/:executionId route to get all DAG executions by any execution ID
+- Files changed: src/routes/v2/dags.ts, src/routes/v2/executions.ts, src/routes/v2/artifacts.ts, src/app.ts
+- **Learnings for future iterations:**
+  - Check existence before ownership for proper 404 vs 403 ordering
+  - execution.dagId can be null, always guard against it
+  - When casting SDK types, use `as unknown as T` for complex type conversions
+---
+
