@@ -1,16 +1,17 @@
 {
   "project": "desiBackend",
-  "branchName": "ralph/email-password-auth",
-  "description": "Email/Password Authentication - Add email/password-based authentication alongside existing API key authentication with session management, email verification, and password reset flows.",
+  "branchName": "ralph/user-resource-access-control",
+  "description": "User-Level Resource Access Control - Restrict DAGs, executions, and sub_steps to the user who created them via a new resource_ownership table, with new routes for artifacts and executions by DAG.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add sessions table to tenant database",
-      "description": "As a developer, I need to store user sessions in the tenant DB so login state persists.",
+      "title": "Create resource_ownership table",
+      "description": "As a developer, I need a table to track which user owns which resources so that access control can be enforced.",
       "acceptanceCriteria": [
-        "Add sessions table with columns: id, userId, token (unique), expiresAt, createdAt, updatedAt",
-        "Add index on token for fast lookups",
-        "Session token is a secure random string (min 32 bytes, base64 encoded)",
+        "Create resource_ownership table with columns: id TEXT PRIMARY KEY, userId TEXT NOT NULL, resourceType TEXT NOT NULL, resourceId TEXT NOT NULL, createdAt INTEGER NOT NULL",
+        "Add unique index on (resourceType, resourceId) to prevent duplicates",
+        "Add index on (userId, resourceType) for efficient ownership lookups",
+        "Add initializeResourceOwnershipSchema() function called during tenant DB initialization",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -19,16 +20,11 @@
     },
     {
       "id": "US-002",
-      "title": "Add password and email verification fields to users table",
-      "description": "As a developer, I need to store hashed passwords and email verification state for email/password authentication.",
+      "title": "Record ownership when DAG is created",
+      "description": "As a system, I need to record the userId when a DAG is created so ownership can be tracked.",
       "acceptanceCriteria": [
-        "Add passwordHash column to users table (nullable for API-key-only users)",
-        "Add emailVerified boolean column (default false)",
-        "Add emailVerificationToken column (nullable)",
-        "Add emailVerificationExpiry column (nullable)",
-        "Add passwordResetToken and passwordResetExpiry columns (nullable)",
-        "Add inviteToken and inviteExpiry columns (nullable)",
-        "Use Argon2id for password hashing",
+        "When POST /dags creates a DAG, insert a record into resource_ownership with userId from request.auth.user.id, resourceType='dag', resourceId=dagId",
+        "Create helper function insertResourceOwnership(db, userId, resourceType, resourceId)",
         "Typecheck passes"
       ],
       "priority": 2,
@@ -37,10 +33,11 @@
     },
     {
       "id": "US-003",
-      "title": "Add auth_logs table for security auditing",
-      "description": "As an admin, I want failed login attempts logged for security auditing.",
+      "title": "Record ownership when execution is created",
+      "description": "As a system, I need to record the userId when an execution is started so ownership can be tracked.",
       "acceptanceCriteria": [
-        "Create auth_logs table: id, tenantId, email, event (login_failed, login_success), ipAddress, userAgent, createdAt",
+        "When POST /dags/:id/execute creates an execution, insert ownership record with resourceType='execution'",
+        "When POST /dags/execute-definition creates an execution, insert ownership record",
         "Typecheck passes"
       ],
       "priority": 3,
@@ -49,13 +46,12 @@
     },
     {
       "id": "US-004",
-      "title": "Create email service abstraction",
-      "description": "As a developer, I need an email service to send verification and reset emails.",
+      "title": "Create ownership check helper functions",
+      "description": "As a developer, I need reusable helper functions for ownership checks to avoid code duplication.",
       "acceptanceCriteria": [
-        "Create src/services/email.ts with interface for sending emails",
-        "Support pluggable providers (start with console logging for dev)",
-        "Functions: sendVerificationEmail, sendPasswordResetEmail, sendInviteEmail",
-        "Emails include tenant name and appropriate links",
+        "Create checkResourceOwnership(db, userId, resourceType, resourceId) that returns boolean",
+        "Create getOwnedResourceIds(db, userId, resourceType) that returns array of resourceIds",
+        "Functions work with tenant database passed as parameter",
         "Typecheck passes"
       ],
       "priority": 4,
@@ -64,17 +60,12 @@
     },
     {
       "id": "US-005",
-      "title": "Implement user self-registration endpoint",
-      "description": "As a new user, I want to register with email/password for an existing tenant so I can access the system.",
+      "title": "Filter DAG list by user ownership",
+      "description": "As a user, I want to only see DAGs I created when listing DAGs.",
       "acceptanceCriteria": [
-        "POST /auth/register/:tenantSlug endpoint",
-        "Request body: { email, password, name }",
-        "Validates tenant slug exists and tenant is active",
-        "Validates email format and password strength (min 8 chars)",
-        "Returns 409 if email already registered in tenant",
-        "Creates user with emailVerified: false",
-        "Sends verification email with token link",
-        "Returns 201 with message 'Verification email sent'",
+        "GET /dags returns only DAGs where userId matches request.auth.user.id via join with resource_ownership",
+        "Empty list returned if user has no DAGs (not an error)",
+        "Pagination still works correctly",
         "Typecheck passes"
       ],
       "priority": 5,
@@ -83,168 +74,98 @@
     },
     {
       "id": "US-006",
-      "title": "Implement email verification endpoint",
-      "description": "As a user, I want to verify my email so I can access protected resources.",
+      "title": "Restrict single DAG access by ownership",
+      "description": "As a user, I should get 403 Forbidden when accessing a DAG I don't own.",
       "acceptanceCriteria": [
-        "GET /auth/verify-email/:token endpoint",
-        "Validates token exists and not expired (24h expiry)",
-        "Sets emailVerified: true on user",
-        "Clears verification token fields",
-        "Returns 200 with success message",
-        "Returns 400 for invalid/expired token",
+        "GET /dags/:id returns 403 if DAG exists but user doesn't own it",
+        "PUT /dags/:id returns 403 if user doesn't own the DAG",
+        "DELETE /dags/:id returns 403 if user doesn't own the DAG",
+        "POST /dags/:id/execute returns 403 if user doesn't own the DAG",
+        "404 still returned if DAG doesn't exist at all",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Implement login endpoint",
-      "description": "As a registered user, I want to log in with email/password so I can access the system.",
+      "title": "Filter execution list by user ownership",
+      "description": "As a user, I want to only see executions I created when listing executions.",
       "acceptanceCriteria": [
-        "POST /auth/login/:tenantSlug endpoint",
-        "Request body: { email, password }",
-        "Validates tenant slug exists and is active",
-        "Returns 401 if email not found or password incorrect (same message for security)",
-        "Returns 403 if email not verified (with message to check email)",
-        "Creates session in DB with 7-day expiry",
-        "Returns session token and user info",
-        "Log successful and failed login attempts to auth_logs",
+        "GET /executions returns only executions where userId matches via resource_ownership",
+        "Empty list returned if user has no executions",
+        "Pagination still works correctly",
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Enforce maximum sessions per user",
-      "description": "As a system, I need to limit active sessions per user to prevent resource abuse.",
+      "title": "Restrict single execution access by ownership",
+      "description": "As a user, I should get 403 Forbidden when accessing an execution I don't own.",
       "acceptanceCriteria": [
-        "Maximum 2 active sessions per user",
-        "On new login, if limit reached, delete oldest session",
-        "Expired sessions don't count toward limit",
+        "GET /executions/:id returns 403 if execution exists but user doesn't own it",
+        "GET /executions/:id/details returns 403 if user doesn't own the execution",
+        "GET /executions/:id/sub-steps returns 403 if user doesn't own the execution",
+        "DELETE /executions/:id returns 403 if user doesn't own the execution",
+        "POST /executions/:id/resume returns 403 if user doesn't own the execution",
+        "404 still returned if execution doesn't exist at all",
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Implement session-based authentication in middleware",
-      "description": "As a developer, I need the authenticate middleware to accept session tokens alongside API keys.",
+      "title": "Create GET /artifacts/:userId route",
+      "description": "As a user, I want to retrieve all artifact names (files) created by my executions using readFile or writeFile tools.",
       "acceptanceCriteria": [
-        "Middleware detects token type by prefix: desi_sk_* = API key, desi_session_* = session",
-        "For session tokens: lookup in sessions table, validate not expired",
-        "Extend session expiry by 7 days on each valid request (sliding window)",
-        "Attach same AuthContext shape for both auth types",
-        "For sessions: apiKey field in context is null or contains session info",
-        "Add authType: 'api_key' | 'session' to AuthContext",
-        "Returns 401 for expired/invalid sessions",
+        "GET /artifacts/:userId returns list of artifacts with: path, toolName (readFile|writeFile), executionId, createdAt",
+        "Only returns artifacts from executions owned by the requesting user",
+        "Returns 403 if requesting user's id doesn't match :userId parameter",
+        "Extracts file paths from sub_steps where toolOrPromptName is 'readFile' or 'writeFile'",
+        "File path extracted from toolOrPromptParams JSON field",
+        "Returns empty array if no artifacts found",
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Implement logout endpoint",
-      "description": "As a logged-in user, I want to log out so my session is invalidated.",
+      "title": "Create GET /dags/executions/:executionId route",
+      "description": "As a user, I want to get all executions for a DAG given any execution ID from that DAG.",
       "acceptanceCriteria": [
-        "POST /auth/logout endpoint",
-        "Requires valid session token in Authorization header",
-        "Deletes session from DB",
-        "Returns 204 on success",
+        "GET /dags/executions/:executionId looks up the execution's dagId, then returns all executions for that DAG",
+        "Response includes DAG info joined with executions: dagId, dagTitle, dagStatus, and array of executions",
+        "Returns 403 if user doesn't own the specified execution",
+        "Returns 404 if execution doesn't exist",
+        "All returned executions must also be owned by the user (filter applied)",
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Implement password reset request endpoint",
-      "description": "As a user who forgot my password, I want to request a reset link so I can regain access.",
+      "title": "Migration script for existing resources",
+      "description": "As an admin, I need existing DAGs and executions to be assigned ownership so they remain accessible after the access control feature is deployed.",
       "acceptanceCriteria": [
-        "POST /auth/forgot-password/:tenantSlug endpoint",
-        "Request body: { email }",
-        "Always returns 200 (don't reveal if email exists)",
-        "If email exists: generates reset token, stores hash in DB, sends email",
-        "Reset token expires in 1 hour",
+        "Create migration script that assigns all existing DAGs to user ugmurthy@gmail.com",
+        "Create migration script that assigns all existing executions to user ugmurthy@gmail.com",
+        "Script looks up userId by email from the users table",
+        "Script is idempotent (safe to run multiple times)",
+        "Script logs number of resources migrated",
+        "Script can be run via bun run migrate:ownership or similar command",
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Implement password reset endpoint",
-      "description": "As a user, I want to reset my password using the link I received.",
-      "acceptanceCriteria": [
-        "POST /auth/reset-password endpoint",
-        "Request body: { token, newPassword }",
-        "Validates token exists and not expired",
-        "Updates password hash",
-        "Invalidates all existing sessions for user",
-        "Clears reset token",
-        "Returns 200 with success message",
-        "Typecheck passes"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-013",
-      "title": "Implement admin invite user endpoint",
-      "description": "As a tenant admin, I want to invite users by email so they can join my tenant.",
-      "acceptanceCriteria": [
-        "POST /auth/invite endpoint (requires admin role)",
-        "Request body: { email, name, role }",
-        "Creates user with emailVerified: false and no password",
-        "Generates invite token (different from verification token)",
-        "Sends invite email with link to set password",
-        "Returns 201 with invite info",
-        "Returns 409 if email already exists in tenant",
-        "Typecheck passes"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-014",
-      "title": "Implement accept invite endpoint",
-      "description": "As an invited user, I want to set my password and activate my account.",
-      "acceptanceCriteria": [
-        "POST /auth/accept-invite/:token endpoint",
-        "Request body: { password }",
-        "Validates invite token exists and not expired (7 days)",
-        "Sets password hash and emailVerified: true",
-        "Clears invite token",
-        "Creates session and returns token",
-        "Typecheck passes"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-015",
-      "title": "Implement email change with re-verification",
-      "description": "As a user, if I change my email, I must verify the new email before accessing resources.",
-      "acceptanceCriteria": [
-        "PUT /auth/email endpoint to change email (requires authentication)",
-        "Sets emailVerified: false and sends verification to new email",
-        "Old email receives notification of change",
-        "User cannot access protected resources until new email verified",
-        "Typecheck passes"
-      ],
-      "priority": 15,
       "passes": false,
       "notes": ""
     }
