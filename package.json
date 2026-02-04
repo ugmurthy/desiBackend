@@ -7,7 +7,8 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
-    "bootstrap-admin": "bun run scripts/bootstrap.ts"
+    "bootstrap-admin": "bun run scripts/bootstrap.ts",
+    "migrate:ownership": "bun run scripts/migrate-ownership.ts"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
