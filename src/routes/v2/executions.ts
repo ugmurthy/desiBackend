@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
-import { error400Schema, error401Schema, error404Schema } from "./schemas";
+import { error400Schema, error401Schema, error403Schema, error404Schema } from "./schemas";
+import { getOwnedResourceIds, checkResourceOwnership } from "../../db/user-schema";
 
 interface ExecutionIdParams {
   id: string;
@@ -184,6 +185,9 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
 
+      const ownedExecutionIds = getOwnedResourceIds(auth.tenantDb, auth.user.id, "execution");
+      const ownedExecutionIdSet = new Set(ownedExecutionIds);
+
       const filter: Record<string, unknown> = {};
       if (status) {
         filter.status = status;
@@ -191,18 +195,19 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
       if (dagId) {
         filter.dagId = dagId;
       }
-      filter.limit = limit;
-      filter.offset = offset;
 
-      const executions = await client.executions.list(filter);
+      const allExecutions = await client.executions.list(filter);
+      const ownedExecutions = allExecutions.filter((exec) => ownedExecutionIdSet.has((exec as { id: string }).id));
+
+      const paginatedExecutions = ownedExecutions.slice(offset, offset + limit);
 
       return {
-        executions: executions.map((exec) => mapExecutionToSummary(exec as unknown as Record<string, unknown>)),
+        executions: paginatedExecutions.map((exec) => mapExecutionToSummary(exec as unknown as Record<string, unknown>)),
         pagination: {
-          total: executions.length,
+          total: ownedExecutions.length,
           limit,
           offset,
-          hasMore: executions.length === limit,
+          hasMore: offset + limit < ownedExecutions.length,
         },
       };
     }
