@@ -670,6 +670,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
       //console.log("[dags/:id/execute] auth", JSON.stringify(auth, null, 2));
       try {
         const result = await client.dags.execute(id, { provider, model });
+        insertResourceOwnership(auth.tenantDb, auth.user.id, "execution", result.id);
         return reply.status(202).send({
           id: result.id,
           status: result.status,
@@ -729,6 +730,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           definition,
           originalGoalText,
         });
+        insertResourceOwnership(auth.tenantDb, auth.user.id, "execution", result.id);
         return reply.status(202).send({
           id: result.id,
           status: result.status,
