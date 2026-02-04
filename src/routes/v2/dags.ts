@@ -2,8 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
 import type { LLMProvider } from "../../config/env";
-import { error400Schema, error401Schema, error404Schema } from "./schemas";
-import { insertResourceOwnership, getOwnedResourceIds } from "../../db/user-schema";
+import { error400Schema, error401Schema, error403Schema, error404Schema } from "./schemas";
+import { insertResourceOwnership, getOwnedResourceIds, checkResourceOwnership } from "../../db/user-schema";
 
 interface DagIdParams {
   id: string;
@@ -506,6 +506,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: { description: "DAG retrieved successfully", ...dagResponseSchema },
           401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          403: { description: "Forbidden - user does not own this DAG", ...error403Schema },
           404: { description: "DAG not found", ...error404Schema },
         },
       },
@@ -519,6 +520,15 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
       
       try {
         const dag = await client.dags.get(id);
+        
+        if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "dag", id)) {
+          return reply.status(403).send({
+            statusCode: 403,
+            error: "Forbidden",
+            message: "You do not have access to this DAG",
+          });
+        }
+        
         console.log("DAG:",dag.id, dag.dagTitle);
         return mapDagToResponse(dag as unknown as Record<string, unknown>);
       } catch (error) {
@@ -557,6 +567,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           200: { description: "DAG updated successfully", ...dagResponseSchema },
           400: { description: "Invalid request body", ...error400Schema },
           401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          403: { description: "Forbidden - user does not own this DAG", ...error403Schema },
           404: { description: "DAG not found", ...error404Schema },
         },
       },
@@ -568,6 +579,22 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
+
+      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "dag", id)) {
+        const dagExists = await client.dags.get(id).then(() => true).catch(() => false);
+        if (!dagExists) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "DAG not found",
+          });
+        }
+        return reply.status(403).send({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "You do not have access to this DAG",
+        });
+      }
 
       try {
         const dag = await client.dags.update(id, updates);
@@ -606,6 +633,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           204: { description: "DAG deleted successfully", type: "null" },
           400: { description: "Invalid request", ...error400Schema },
           401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          403: { description: "Forbidden - user does not own this DAG", ...error403Schema },
           404: { description: "DAG not found", ...error404Schema },
         },
       },
@@ -616,6 +644,22 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
+
+      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "dag", id)) {
+        const dagExists = await client.dags.get(id).then(() => true).catch(() => false);
+        if (!dagExists) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "DAG not found",
+          });
+        }
+        return reply.status(403).send({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "You do not have access to this DAG",
+        });
+      }
 
       try {
         await client.dags.safeDelete(id);
@@ -660,6 +704,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           202: { ...executionStartedResponseSchema, description: "DAG execution started" },
           401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          403: { description: "Forbidden - user does not own this DAG", ...error403Schema },
           404: { description: "DAG not found", ...error404Schema },
         },
       },
@@ -671,7 +716,23 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
-      //console.log("[dags/:id/execute] auth", JSON.stringify(auth, null, 2));
+
+      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "dag", id)) {
+        const dagExists = await client.dags.get(id).then(() => true).catch(() => false);
+        if (!dagExists) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "DAG not found",
+          });
+        }
+        return reply.status(403).send({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "You do not have access to this DAG",
+        });
+      }
+
       try {
         const result = await client.dags.execute(id, { provider, model });
         insertResourceOwnership(auth.tenantDb, auth.user.id, "execution", result.id);
