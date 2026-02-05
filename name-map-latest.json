@@ -114,6 +114,13 @@
       "service": "dags",
       "method": "resume-clarification"
     },
+    "postApiV2CreateExecute": { "service": "dags", "method": "create-execute" },
+    "getApiV2DagsExecutionsById": {
+      "service": "dags",
+      "method": "executionbyDagId"
+    },
+    "getApiV2Artifacts": "artifacts",
+
     "getApiV2DagsScheduled": {
       "service": "dags",
       "method": "getScheduled"

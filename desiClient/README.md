@@ -28,6 +28,7 @@ const response = await client._default.healthCheck(/* params */);
 
 - `_default.healthCheck()`
 - `_default.healthCheckReady()`
+- `_default.artifacts(options?)`
 
 ### auth
 
@@ -67,14 +68,15 @@ const response = await client._default.healthCheck(/* params */);
 
 - `dags.list(options?)`
 - `dags.create(body)`
+- `dags.createExecute(body)`
 - `dags.resumeClarification(id, body)`
 - `dags.getScheduled()`
 - `dags.getById(id)`
 - `dags.updateById(id, body)`
 - `dags.deleteById(id)`
 - `dags.execute(id, body)`
-- `dags.createExecuteDefinition(body)`
 - `dags.createExperiments(body)`
+- `dags.executionbyDagId(id)`
 
 ### executions
 

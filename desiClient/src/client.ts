@@ -369,6 +369,16 @@ class DagsService {
     return response.data;
   }
 
+  /** Create DAG and execute in one step */
+  async createExecute(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/create-execute';
+
+    const config: AxiosRequestConfig = {};
+
+    const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
+    return response.data;
+  }
+
   /** Resume DAG creation after clarification */
   async resumeClarification(params: {
     id: string;
@@ -443,18 +453,6 @@ class DagsService {
     return response.data;
   }
 
-  /** Execute from definition */
-  async createExecuteDefinition(params: {
-    body: Record<string, unknown>;
-  }): Promise<Record<string, unknown>> {
-    let url = '/api/v2/dags/execute-definition';
-
-    const config: AxiosRequestConfig = {};
-
-    const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
-    return response.data;
-  }
-
   /** Run experiments */
   async createExperiments(params: {
     body: Record<string, unknown>;
@@ -464,6 +462,17 @@ class DagsService {
     const config: AxiosRequestConfig = {};
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
+    return response.data;
+  }
+
+  /** Get DAG executions by DAG ID */
+  async executionbyDagId(params: { id: string }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/dags/executions/{id}';
+    url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
+
+    const config: AxiosRequestConfig = {};
+
+    const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 }
@@ -847,6 +856,20 @@ export class ApiClient {
     let url = '/api/v2/health/ready';
 
     const config: AxiosRequestConfig = {};
+
+    const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** Get artifacts for authenticated user */
+  async artifacts(params: { path?: string }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/artifacts';
+
+    const config: AxiosRequestConfig = {
+      params: {
+        path: params.path,
+      },
+    };
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;

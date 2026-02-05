@@ -68,35 +68,22 @@ class DesiAgentEmailProvider implements EmailProvider {
   private async ensureInitialized(): Promise<void> {
     if (this.initialized) return;
 
-    const { SendEmailTool } = await import("@ugm/desiagent");
-    this.sendEmailTool = new SendEmailTool();
+    const { sendEmailTool } = await import("@ugm/desiagent");
+    this.sendEmailTool = sendEmailTool
     this.initialized = true;
   }
 
   async sendEmail(options: SendEmailOptions): Promise<void> {
     await this.ensureInitialized();
 
-    const ctx = {
-      logger: {
-        debug: (msg: string, data?: any) => console.debug(`[SendEmail] ${msg}`, data ?? ""),
-        info: (msg: string, data?: any) => console.info(`[SendEmail] ${msg}`, data ?? ""),
-        warn: (msg: string, data?: any) => console.warn(`[SendEmail] ${msg}`, data ?? ""),
-        error: (msg: string, data?: any) => console.error(`[SendEmail] ${msg}`, data ?? ""),
-      },
-      artifactsDir: "./artifacts",
-      emitEvent: {
-        completed: (msg: string) => console.log(`[SendEmail] Completed: ${msg}`),
-      },
-    };
-
-    const result = await this.sendEmailTool.execute(
+   
+    const result = await this.sendEmailTool(
       {
         to: options.to,
         subject: options.subject,
         body: options.html,
         html: true,
-      },
-      ctx
+      }
     );
 
     if (!result.success) {
@@ -107,7 +94,8 @@ class DesiAgentEmailProvider implements EmailProvider {
 
 export { DesiAgentEmailProvider };
 
-let emailProvider: EmailProvider = new ConsoleEmailProvider();
+//let emailProvider: EmailProvider = new ConsoleEmailProvider();
+let emailProvider: EmailProvider = new DesiAgentEmailProvider();
 
 export function setEmailProvider(provider: EmailProvider): void {
   emailProvider = provider;
