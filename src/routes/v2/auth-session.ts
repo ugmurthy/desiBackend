@@ -772,8 +772,8 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
       updateStmt.run(resetToken, resetExpiry, user.id);
 
       // Send reset email
-      const baseUrl = fastify.config.BASE_URL;
-      const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+      const frontendBaseUrl = fastify.config.FRONTEND_BASE_URL;
+      const resetLink = `${frontendBaseUrl}/reset-password?token=${resetToken}`;
 
       await sendPasswordResetEmail({
         email: user.email,

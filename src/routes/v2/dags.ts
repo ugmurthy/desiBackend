@@ -31,7 +31,7 @@ interface UpdateDagBody {
 }
 
 interface ListDagsQuery {
-  status?: "pending" | "active" | "paused" | "completed" | "failed" | "cancelled";
+  status?: "pending" |  "success" | "failed" ;
   createdAfter?: string;
   createdBefore?: string;
   limit?: number;
@@ -258,7 +258,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           scheduleActive,
           timezone,
         });
-        console.log(JSON.stringify(request,null,2), "Backend: Created DAG");
+        //console.log(JSON.stringify(request,null,2), "Backend: Created DAG");
         if (result.status === "clarification_required") {
           return reply.status(202).send({
             status: "clarification_required",

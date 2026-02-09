@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { ApiClient } from './sdk';
+import { ApiClient } from './desiClient';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { InputAnalyzer } from './input-analyser.ts';
@@ -26,7 +26,7 @@ try {
   for (const dag of dags.dags) {
     const d = await client.dags.getById({id: dag.id});
     displayDag=d
-    console.log(`- (${dag.id}) ${dag.status}  }`);
+    
     if (dag.status === 'success') {
       
       const complexityScore = await inputAnalyzer.analyzeComplexity(d.metadata.goalText)
@@ -36,12 +36,15 @@ try {
      
       
       if (eScore.isComplex) {
+        console.log("\n")
+        console.log("\t",d.metadata.goalText.substring(0,100))
+        console.log(`- (${dag.id}) ${dag.status}  }`);
         console.log("\t",d.metadata.goalText.length, "chars", d.metadata.result.sub_tasks.length," tasks");
         console.log(enhancedInputAnalyzer.getReadableAnalysis(eScore));
-        console.log("\t",d.metadata.goalText)
         
+        console.log("==================")
       }    
-      console.log("==================")
+      
     }
   }
 
@@ -59,7 +62,7 @@ try {
       if (status === 401) {
         console.error('Error: Unauthorized - Invalid or missing API token');
       } else if (status === 404) {
-        console.error(`Error: Agent '${agentName}' not found`);
+        console.error(`Error: page not found`);
       } else if (status === 400) {
         console.error(`Error: Bad Request - ${data?.message || data?.error || 'Unknown error'}`);
       } else {

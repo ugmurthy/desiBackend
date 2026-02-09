@@ -8,6 +8,7 @@ import { create } from 'domain';
 import { ApiClient } from '../desiClient';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { threadName } from 'worker_threads';
 
 // Default values
 const API_BASE_URL = process.env.DESI_BACKEND_URL || 'http://localhost:3000';
@@ -32,9 +33,11 @@ const client = new ApiClient({
 try {
   // Create the DAG
 
-  const createResponse = await client.artifacts({path:'dario.md'})
+  const createResponse = await client.artifacts({})
   console.log(JSON.stringify(createResponse));
-  
+
+
+
 } catch (error) {
   if (error instanceof Error) {
     // Handle axios errors
