@@ -559,7 +559,24 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const allDags = await client.dags.list(filter);
       const ownedDags = allDags.filter((dag) => ownedDagIdSet.has((dag as { id: string }).id));
+      // let filteredDags = allDags;
+      // if (createdAfter) {
+      //   const afterDate = new Date(createdAfter);
+      //   filteredDags = filteredDags.filter((dag) => {
+      //     const created = new Date((dag as { createdAt: string }).createdAt);
+      //     return created >= afterDate;
+      //   });
+      // }
+      // if (createdBefore) {
+      //   const beforeDate = new Date(createdBefore);
+      //   filteredDags = filteredDags.filter((dag) => {
+      //     const created = new Date((dag as { createdAt: string }).createdAt);
+      //     return created <= beforeDate;
+      //   });
+      // }
+      // const ownedDags = filteredDags.filter((dag) => ownedDagIdSet.has((dag as { id: string }).id));
 
+      
       const paginatedDags = ownedDags.slice(offset, offset + limit);
 
       return {
