@@ -36,7 +36,8 @@ try {
   const createResponse = await client.artifacts({})
   console.log(JSON.stringify(createResponse));
 
-
+  const content = await client.artifacts({path:'network-issue.md'})
+  console.log(content);
 
 } catch (error) {
   if (error instanceof Error) {
@@ -63,5 +64,21 @@ try {
     console.error('Error: An unexpected error occurred');
     console.error(error);
   }
+
+ 
   process.exit(1);
 }
+
+
+/*
+{
+  artifact: {
+    path: "network-issue.md",
+    toolName: "writeFile",
+    executionId: "exec_I_f1oUJTj0y02G2mpuMtg",
+    createdAt: "2026-02-12T00:53:32.000Z",
+    content: "....content text",
+  },
+}
+
+*/

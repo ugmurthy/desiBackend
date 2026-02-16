@@ -40,8 +40,8 @@ try {
         console.log("\t",d.metadata.goalText.substring(0,100))
         console.log(`- (${dag.id}) ${dag.status}  }`);
         console.log("\t",d.metadata.goalText.length, "chars", d.metadata.result.sub_tasks.length," tasks");
-        console.log(enhancedInputAnalyzer.getReadableAnalysis(eScore));
-        
+        //console.log(enhancedInputAnalyzer.getReadableAnalysis(eScore));
+        console.log(JSON.stringify(eScore, null, 2) );
         console.log("==================")
       }    
       

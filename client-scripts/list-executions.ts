@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * execute-goal-sdk.ts - Script to create and execute a DAG using desiClientSDK
- * Usage: bun run execute-goal-sdk.ts -f <filename>
+ * Usage: bun run execute-goal-sdk.ts [--raw <mode>] [--id <executionId>] [--steps]
  */
 
 import { ApiClient } from '../desiClient';
@@ -12,9 +12,23 @@ import chalk from 'chalk';
 const API_BASE_URL = process.env.DESI_BACKEND_URL || 'http://localhost:3000';
 const API_TOKEN = process.env.DESI_API_TOKEN || '';
 
-const isRaw = process.argv.includes('--raw');
-const byId = process.argv.includes('--id');
+const rawArgIndex = process.argv.indexOf('--raw');
+const isRaw = rawArgIndex !== -1;
+const rawMode = isRaw ? process.argv[rawArgIndex + 1] : undefined;
+const idArgIndex = process.argv.indexOf('--id');
+const byId = idArgIndex !== -1;
+const executionId = byId ? process.argv[idArgIndex + 1] : undefined;
 const bySubSteps = process.argv.includes('--steps');
+if (isRaw && !rawMode) {
+  console.error('Error: --raw requires a mode argument');
+  console.error('Usage: bun run execute-goal-sdk.ts [--raw <mode>] [--id <executionId>] [--steps]');
+  process.exit(1);
+}
+if (byId && !executionId) {
+  console.error('Error: --id requires an executionId argument');
+  console.error('Usage: bun run execute-goal-sdk.ts [--raw <mode>] [--id <executionId>] [--steps]');
+  process.exit(1);
+}
 // Check if API token is set
 if (!API_TOKEN) {
   console.error('Error: DESI_API_TOKEN environment variable is not set');
@@ -27,7 +41,6 @@ const client = new ApiClient({
   baseUrl: API_BASE_URL,
   token: API_TOKEN,
 });
-const exec_id = 'exec_JaxURH6ILU0z9JQh95hd8'
 try {
   // Create the DAG
   const {executions} = await client.executions.list({})
@@ -36,15 +49,15 @@ try {
     if (byId) {
       console.error("Raw - mode")
       const execution0 = executions[0]
-      const execution = await client.executions.getById({id:exec_id || execution0.id});
+      const execution = await client.executions.getById({id: executionId || execution0.id});
 
       if (bySubSteps) {
         console.error("Raw - mode - substeps")
         // list all substeps
-        const {subSteps} = await client.executions.getSubSteps({id:exec_id || execution0.id})
+        const {subSteps} = await client.executions.getSubSteps({id: executionId || execution0.id})
         for (const step of subSteps ) {
           console.error(step.id, Object.keys(step))
-          console.log(step.result) 
+          console.log(step.result)
         }
       } else {
         // just output one

@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
-import { authenticate } from "../../middleware/authenticate";
+import { authenticate, ensureRole } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
 import { getUsage, getUsageSummary, type DateRange } from "../../services/billing";
 import type { UsageMetadata } from "../../db/billing-schema";
+import { getOwnedResourceIds } from "../../db/user-schema";
 import { error401SchemaExamples, errorResponseSchemaExamples } from "./schemas";
 
 interface ExecutionIdParams {
@@ -277,11 +278,11 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: CostSummaryQuery }>(
     "/costs/summary",
     {
-      preHandler: [authenticate],
+      preHandler: [authenticate, ensureRole("admin")],
       schema: {
         tags: ["Costs"],
-        summary: "Get overall cost summary",
-        description: "Retrieves an aggregated cost summary for the tenant, including usage breakdown by resource type and model. Supports optional date range filtering.",
+        summary: "Get overall cost summary (admin only)",
+        description: "Retrieves an aggregated cost summary for the tenant, including usage breakdown by resource type and model. Supports optional date range filtering. Requires admin role.",
         querystring: {
           type: "object",
           properties: {
@@ -437,6 +438,193 @@ const costsRoutes: FastifyPluginAsync = async (fastify) => {
       const totalCost = tokenCost + computeCost;
 
       return {
+        tenantId: auth.tenant.id,
+        period: {
+          startDate: dateRange?.start ?? null,
+          endDate: dateRange?.end ?? null,
+        },
+        usage: {
+          totalTokens,
+          computeTimeMs: totalComputeTimeMs,
+        },
+        costs: {
+          tokenCost,
+          computeCost,
+          totalCost,
+        },
+        breakdown: {
+          byResourceType: resourceTypeBreakdown,
+          byModel: modelBreakdown,
+        },
+      };
+    }
+  );
+
+  fastify.get<{ Querystring: CostSummaryQuery }>(
+    "/costs/summary/me",
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ["Costs"],
+        summary: "Get cost summary for the authenticated user",
+        description: "Retrieves an aggregated cost summary for the authenticated user, scoped to executions they own. Supports optional date range filtering.",
+        querystring: {
+          type: "object",
+          properties: {
+            startDate: { type: "string", format: "date", description: "Start date for filtering (inclusive)", examples: ["2024-01-01"] },
+            endDate: { type: "string", format: "date", description: "End date for filtering (inclusive)", examples: ["2024-01-31"] },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            description: "User cost summary",
+            properties: {
+              userId: { type: "string", examples: ["user_123"] },
+              tenantId: { type: "string", examples: ["tenant_123"] },
+              period: {
+                type: "object",
+                properties: {
+                  startDate: { type: ["string", "null"], examples: ["2024-01-01"] },
+                  endDate: { type: ["string", "null"], examples: ["2024-01-31"] },
+                },
+              },
+              usage: {
+                type: "object",
+                properties: {
+                  totalTokens: { type: "number", examples: [500000] },
+                  computeTimeMs: { type: "number", examples: [300000] },
+                },
+              },
+              costs: {
+                type: "object",
+                properties: {
+                  tokenCost: { type: "number", examples: [1.5] },
+                  computeCost: { type: "number", examples: [0.3] },
+                  totalCost: { type: "number", examples: [1.8] },
+                },
+              },
+              breakdown: {
+                type: "object",
+                properties: {
+                  byResourceType: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        resourceType: { type: "string", examples: ["tokens"] },
+                        quantity: { type: "number", examples: [500000] },
+                        cost: { type: "number", examples: [1.5] },
+                      },
+                    },
+                  },
+                  byModel: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        model: { type: "string", examples: ["gpt-4"] },
+                        tokens: { type: "number", examples: [300000] },
+                        cost: { type: "number", examples: [0.9] },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: error401SchemaExamples,
+        },
+      },
+    },
+    async (request) => {
+      const auth = request.auth!;
+      const { startDate, endDate } = request.query;
+
+      let dateRange: DateRange | undefined;
+      if (startDate && endDate) {
+        dateRange = {
+          start: startDate,
+          end: endDate,
+        };
+      }
+
+      const ownedExecutionIds = getOwnedResourceIds(auth.tenantDb, auth.user.id, "execution");
+      const ownedExecutionSet = new Set(ownedExecutionIds);
+
+      const usageRecords = getUsage(auth.tenant.id, dateRange);
+
+      const userRecords = usageRecords.filter((record) => {
+        const metadata: UsageMetadata = JSON.parse(record.metadata);
+        return metadata.executionId && ownedExecutionSet.has(metadata.executionId);
+      });
+
+      let totalTokens = 0;
+      let totalComputeTimeMs = 0;
+      let tokenCost = 0;
+      let computeCost = 0;
+      const models = new Map<string, { tokens: number; cost: number }>();
+
+      for (const record of userRecords) {
+        if (record.resourceType === "tokens") {
+          totalTokens += record.quantity;
+          tokenCost += record.unitCost;
+
+          const metadata: UsageMetadata = JSON.parse(record.metadata);
+          if (metadata.model) {
+            const existing = models.get(metadata.model) || { tokens: 0, cost: 0 };
+            models.set(metadata.model, {
+              tokens: existing.tokens + record.quantity,
+              cost: existing.cost + record.unitCost,
+            });
+          }
+        } else if (record.resourceType === "compute_time") {
+          totalComputeTimeMs += record.quantity;
+          computeCost += record.unitCost;
+        }
+      }
+
+      if (userRecords.length === 0 && ownedExecutionIds.length > 0) {
+        const clientService = getTenantClientService();
+        const client = await clientService.getClient(auth.tenant.id);
+        const executions = await client.executions.list();
+
+        const userExecutions = executions.filter((exec) => ownedExecutionSet.has(exec.id));
+
+        const filteredExecutions = dateRange
+          ? userExecutions.filter((exec) => {
+              if (!exec.startedAt) return false;
+              const execDate = new Date(exec.startedAt).toISOString().split("T")[0] as string;
+              return execDate >= dateRange.start && execDate <= dateRange.end;
+            })
+          : userExecutions;
+
+        for (const exec of filteredExecutions) {
+          const execTokens = (exec.totalUsage?.promptTokens ?? 0) + (exec.totalUsage?.completionTokens ?? 0);
+          totalTokens += execTokens;
+          totalComputeTimeMs += exec.durationMs ?? 0;
+          tokenCost += Number(exec.totalCostUsd) || 0;
+        }
+      }
+
+      const resourceTypeBreakdown: { resourceType: string; quantity: number; cost: number }[] = [];
+      if (totalTokens > 0 || tokenCost > 0) {
+        resourceTypeBreakdown.push({ resourceType: "tokens", quantity: totalTokens, cost: tokenCost });
+      }
+      if (totalComputeTimeMs > 0 || computeCost > 0) {
+        resourceTypeBreakdown.push({ resourceType: "compute_time", quantity: totalComputeTimeMs, cost: computeCost });
+      }
+
+      const modelBreakdown = Array.from(models.entries()).map(([model, data]) => ({
+        model,
+        tokens: data.tokens,
+        cost: data.cost,
+      }));
+
+      const totalCost = tokenCost + computeCost;
+
+      return {
+        userId: auth.user.id,
         tenantId: auth.tenant.id,
         period: {
           startDate: dateRange?.start ?? null,
