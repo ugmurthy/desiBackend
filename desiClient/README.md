@@ -97,6 +97,7 @@ const response = await client._default.healthCheck(/* params */);
 - `costs.getExecutionsById(id)`
 - `costs.getDagsById(id)`
 - `costs.getSummary(options?)`
+- `costs.getMySummary(options?)`
 
 ### billing
 
@@ -1214,7 +1215,7 @@ Retrieves aggregated cost and usage information for a DAG, including totals acro
 
 #### `costs.getSummary(options?)`
 
-Retrieves an aggregated cost summary for the tenant, including usage breakdown by resource type and model. Supports optional date range filtering.
+Retrieves an aggregated cost summary for the tenant, including usage breakdown by resource type and model. Supports optional date range filtering. Requires admin role.
 
 **Query Parameters:**
 
@@ -1227,6 +1228,30 @@ Retrieves an aggregated cost summary for the tenant, including usage breakdown b
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
+| `tenantId` | string | No |  |
+| `period` | object | No |  |
+| `usage` | object | No |  |
+| `costs` | object | No |  |
+| `breakdown` | object | No |  |
+
+---
+
+#### `costs.getMySummary(options?)`
+
+Retrieves an aggregated cost summary for the authenticated user, scoped to executions they own. Supports optional date range filtering.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `startDate` | string (date) | No | |
+| `endDate` | string (date) | No | |
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `userId` | string | No |  |
 | `tenantId` | string | No |  |
 | `period` | object | No |  |
 | `usage` | object | No |  |

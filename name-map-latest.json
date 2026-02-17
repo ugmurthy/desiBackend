@@ -193,6 +193,11 @@
       "service": "costs",
       "method": "getSummary"
     },
+    "getApiV2CostsSummaryMe": {
+      "service": "costs",
+      "method": "getMySummary"
+    },
+
     "getApiV2BillingUsage": {
       "service": "billing",
       "method": "getUsage"

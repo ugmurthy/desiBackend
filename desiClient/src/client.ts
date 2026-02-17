@@ -283,7 +283,7 @@ class AgentsService {
   /** Update agent */
   async updateById(params: {
     id: string;
-    body?: Record<string, unknown>;
+    body: Record<string, unknown>;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/agents/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
@@ -417,7 +417,7 @@ class DagsService {
   /** Update DAG */
   async updateById(params: {
     id: string;
-    body?: Record<string, unknown>;
+    body: Record<string, unknown>;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
@@ -442,7 +442,7 @@ class DagsService {
   /** Execute a DAG */
   async execute(params: {
     id: string;
-    body?: Record<string, unknown>;
+    body: Record<string, unknown>;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/{id}/execute';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
@@ -620,12 +620,30 @@ class CostsService {
     return response.data;
   }
 
-  /** Get overall cost summary */
+  /** Get overall cost summary (admin only) */
   async getSummary(params: {
     startDate?: string;
     endDate?: string;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/costs/summary';
+
+    const config: AxiosRequestConfig = {
+      params: {
+        startDate: params.startDate,
+        endDate: params.endDate,
+      },
+    };
+
+    const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** Get cost summary for the authenticated user */
+  async getMySummary(params: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/costs/summary/me';
 
     const config: AxiosRequestConfig = {
       params: {
@@ -763,7 +781,7 @@ class AdminService {
   /** Update tenant */
   async updateTenantsById(params: {
     id: string;
-    body?: Record<string, unknown>;
+    body: Record<string, unknown>;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/admin/tenants/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
