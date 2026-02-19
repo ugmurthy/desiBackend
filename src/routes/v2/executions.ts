@@ -54,7 +54,7 @@ const executionDetailSchema = {
     suspendedReason: { type: "string", nullable: true, example: null },
     suspendedAt: { type: "string", format: "date-time", nullable: true, example: null },
     retryCount: { type: "integer", example: 0 },
-    totalUsage: { type: "object", nullable: true, example: { tokens: 1500 } },
+    totalUsage: { type: "object", nullable: true, additionalProperties: true, example: { tokens: 1500 } },
     totalCostUsd: { type: "number", nullable: true, example: 0.015 },
     updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:01:00Z" },
   },

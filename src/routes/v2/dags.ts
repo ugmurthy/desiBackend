@@ -514,7 +514,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           properties: {
             status: {
               type: "string",
-              enum: ["pending", "active", "paused", "completed", "failed", "cancelled"],
+              enum: ["success","pending", "active", "paused", "completed", "failed", "cancelled"],
               example: "active",
             },
             createdAfter: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
