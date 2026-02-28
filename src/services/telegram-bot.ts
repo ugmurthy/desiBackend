@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import type { TelegramIdentity, ProfileRegistry } from "../db/telegram-schema";
+import type { TelegramIdentity, ProfileRegistry, TelegramRequest } from "../db/telegram-schema";
 import {
   getIdentityByTelegramUserId,
   createIdentity,
@@ -9,6 +9,17 @@ import {
   completeVerification,
 } from "./telegram-otp";
 import { getAdminDatabase } from "../db/admin-schema";
+import {
+  getActiveRequest,
+  hasActiveRequest,
+  createRequest,
+  updateRequestExecution,
+  updateRequestState,
+} from "./telegram-request";
+import {
+  resolveProfileForIdentity,
+  resolveHandler,
+} from "./telegram-profile-router";
 
 // --- Telegram API types ---
 
@@ -216,6 +227,15 @@ export async function handleTelegramUpdate(
   }
 
   if (command === "/use") {
+    // US-006: Block profile switch during active request lifecycle
+    if (hasActiveRequest(db, identity.id)) {
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        "⚠️ Cannot switch profiles while you have an active request.\nPlease wait for your current request to complete or fail."
+      );
+      return;
+    }
     await handleUseProfile(db, botToken, chatId, identity, args);
     return;
   }
@@ -232,13 +252,28 @@ export async function handleTelegramUpdate(
     return;
   }
 
-  // --- Ready state: plain text → future request submission (US-007) ---
+  // --- Ready state: plain text → request handling (US-005/US-006/US-007) ---
   if (identity.state === "ready" && !command) {
-    await sendTelegramMessage(
-      botToken,
-      chatId,
-      "📝 Request received. Execution support coming soon."
-    );
+    const activeReq = getActiveRequest(db, identity.id);
+
+    if (activeReq && activeReq.state === "awaiting_clarification") {
+      // US-007: Clarification response
+      await handleClarificationResponse(db, botToken, chatId, identity, activeReq, text);
+      return;
+    }
+
+    if (activeReq) {
+      // US-006: Reject overlapping request
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        "⏳ You already have an active request. Please wait for it to complete before submitting a new one."
+      );
+      return;
+    }
+
+    // US-005 + US-007: Submit new request via profile router
+    await handleNewRequest(db, botToken, chatId, identity, text);
     return;
   }
 
@@ -428,4 +463,191 @@ async function handleUseProfile(
     chatId,
     `✅ Active profile set to *${profile.name}*.`
   );
+}
+
+// --- US-005 + US-007: New request submission via profile router ---
+
+async function handleNewRequest(
+  db: Database,
+  botToken: string,
+  chatId: string,
+  identity: TelegramIdentity,
+  text: string
+): Promise<void> {
+  // Resolve profile
+  const profileId = resolveProfileForIdentity(identity);
+  if (!profileId) {
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "❌ No profile configured. Use /use <profile> to select a profile, or contact your admin."
+    );
+    return;
+  }
+
+  // Resolve handler
+  const handler = resolveHandler(profileId);
+  if (!handler) {
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "❌ Profile handler not available. Please try a different profile or contact your admin."
+    );
+    return;
+  }
+
+  // Create request record (persists profileId for auditability - US-005)
+  const request = createRequest(db, {
+    identityId: identity.id,
+    chatId,
+    profileId,
+    requestText: text,
+  });
+
+  await sendTelegramMessage(
+    botToken,
+    chatId,
+    "⏳ Processing your request..."
+  );
+
+  try {
+    const result = await handler.handleRequest({
+      tenantId: identity.tenantId,
+      userId: identity.userId ?? "",
+      goalText: text,
+    });
+
+    if (result.status === "clarification_required") {
+      // US-007: Transition to awaiting clarification
+      updateRequestExecution(db, request.id, {
+        dagId: result.dagId,
+        state: "awaiting_clarification",
+      });
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        `❓ *Clarification needed:*\n\n${result.clarificationQuery}\n\nPlease reply with your answer.`
+      );
+      return;
+    }
+
+    if (!result.success) {
+      // Validation error or other failure
+      updateRequestExecution(db, request.id, {
+        dagId: result.dagId,
+        state: "failed",
+      });
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        `❌ Request failed: ${result.error ?? "Unknown error"}`
+      );
+      return;
+    }
+
+    // Success
+    updateRequestExecution(db, request.id, {
+      dagId: result.dagId,
+      executionId: result.executionId,
+      state: "executing",
+    });
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      `✅ Request accepted!\n\n🔹 Execution: \`${result.executionId}\`\n\nYou'll be notified when it completes.`
+    );
+  } catch (error) {
+    updateRequestState(db, request.id, "failed");
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      `❌ Request failed: ${msg}`
+    );
+  }
+}
+
+// --- US-007: Clarification response handler ---
+
+async function handleClarificationResponse(
+  db: Database,
+  botToken: string,
+  chatId: string,
+  identity: TelegramIdentity,
+  activeReq: TelegramRequest,
+  text: string
+): Promise<void> {
+  if (!activeReq.profileId || !activeReq.dagId) {
+    updateRequestState(db, activeReq.id, "failed");
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "❌ Request context lost. Please submit a new request."
+    );
+    return;
+  }
+
+  const handler = resolveHandler(activeReq.profileId);
+  if (!handler) {
+    updateRequestState(db, activeReq.id, "failed");
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "❌ Profile handler no longer available. Please submit a new request."
+    );
+    return;
+  }
+
+  try {
+    const result = await handler.handleClarification({
+      tenantId: identity.tenantId,
+      dagId: activeReq.dagId,
+      userResponse: text,
+    });
+
+    if (result.status === "clarification_required") {
+      // Another round of clarification
+      updateRequestExecution(db, activeReq.id, {
+        dagId: result.dagId ?? activeReq.dagId,
+        state: "awaiting_clarification",
+      });
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        `❓ *Additional clarification needed:*\n\n${result.clarificationQuery}\n\nPlease reply with your answer.`
+      );
+      return;
+    }
+
+    if (!result.success) {
+      updateRequestState(db, activeReq.id, "failed");
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        `❌ Request failed: ${result.error ?? "Unknown error"}`
+      );
+      return;
+    }
+
+    // Clarification resolved successfully
+    updateRequestExecution(db, activeReq.id, {
+      dagId: result.dagId ?? activeReq.dagId,
+      executionId: result.executionId,
+      state: result.executionId ? "executing" : "completed",
+    });
+
+    const successMsg = result.executionId
+      ? `✅ Clarification accepted! Execution started.\n\n🔹 Execution: \`${result.executionId}\``
+      : `✅ Clarification accepted! DAG created successfully.`;
+
+    await sendTelegramMessage(botToken, chatId, successMsg);
+  } catch (error) {
+    updateRequestState(db, activeReq.id, "failed");
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      `❌ Request failed: ${msg}`
+    );
+  }
 }
