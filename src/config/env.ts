@@ -54,6 +54,14 @@ export const envSchema = {
       type: "string" as const,
       default: "default",
     },
+    TELEGRAM_POLL_INTERVAL_MS: {
+      type: "number" as const,
+      default: 5000,
+    },
+    TELEGRAM_POLL_TIMEOUT_MS: {
+      type: "number" as const,
+      default: 300000,
+    },
   },
 };
 
@@ -73,6 +81,8 @@ export type EnvConfig = {
   FRONTEND_BASE_URL: string;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_DEFAULT_TENANT_ID: string;
+  TELEGRAM_POLL_INTERVAL_MS: number;
+  TELEGRAM_POLL_TIMEOUT_MS: number;
 };
 
 declare module "fastify" {

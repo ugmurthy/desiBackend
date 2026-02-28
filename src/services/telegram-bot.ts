@@ -20,6 +20,7 @@ import {
   resolveProfileForIdentity,
   resolveHandler,
 } from "./telegram-profile-router";
+import { startExecutionPolling } from "./telegram-polling";
 
 // --- Telegram API types ---
 
@@ -556,6 +557,17 @@ async function handleNewRequest(
       chatId,
       `✅ Request accepted!\n\n🔹 Execution: \`${result.executionId}\`\n\nYou'll be notified when it completes.`
     );
+
+    // US-008: Start polling for execution lifecycle notifications
+    if (result.executionId) {
+      startExecutionPolling({
+        botToken,
+        chatId,
+        tenantId: identity.tenantId,
+        requestId: request.id,
+        executionId: result.executionId,
+      });
+    }
   } catch (error) {
     updateRequestState(db, request.id, "failed");
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -641,6 +653,17 @@ async function handleClarificationResponse(
       : `✅ Clarification accepted! DAG created successfully.`;
 
     await sendTelegramMessage(botToken, chatId, successMsg);
+
+    // US-008: Start polling for execution lifecycle notifications
+    if (result.executionId) {
+      startExecutionPolling({
+        botToken,
+        chatId,
+        tenantId: identity.tenantId,
+        requestId: activeReq.id,
+        executionId: result.executionId,
+      });
+    }
   } catch (error) {
     updateRequestState(db, activeReq.id, "failed");
     const msg = error instanceof Error ? error.message : "Unknown error";
