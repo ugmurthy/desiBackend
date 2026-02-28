@@ -1,11 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
 import { Database } from "bun:sqlite";
+import { join, dirname } from "path";
 import { getTenantDbPath } from "../../db/user-schema";
 import {
   handleTelegramUpdate,
   seedDefaultProfile,
   type TelegramUpdate,
 } from "../../services/telegram-bot";
+import { validateDownloadToken } from "../../services/telegram-polling";
 
 const telegramRoutes: FastifyPluginAsync = async (fastify) => {
   // Seed default profile on registration
@@ -60,6 +62,76 @@ const telegramRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       return reply.status(200).send({ ok: true });
+    }
+  );
+  // US-010: Signed download endpoint for large artifacts
+  fastify.get<{ Params: { token: string } }>(
+    "/telegram/download/:token",
+    {
+      schema: {
+        tags: ["Telegram"],
+        summary: "Download artifact via signed token",
+        description: "Serves a file artifact using a time-limited signed download token",
+        params: {
+          type: "object",
+          required: ["token"],
+          properties: {
+            token: { type: "string" },
+          },
+        },
+        response: {
+          404: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number" },
+              error: { type: "string" },
+              message: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { token } = request.params;
+      const result = validateDownloadToken(token);
+
+      if (!result) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: "Download link expired or invalid",
+        });
+      }
+
+      const dbPath = getTenantDbPath(result.tenantId);
+      const artifactsDir = join(dirname(dbPath), "artifacts");
+      const fullPath = join(artifactsDir, result.filePath);
+
+      try {
+        const file = Bun.file(fullPath);
+        const exists = await file.exists();
+        if (!exists) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "File not found",
+          });
+        }
+
+        const stream = file.stream();
+        reply.header("Content-Type", file.type || "application/octet-stream");
+        reply.header(
+          "Content-Disposition",
+          `attachment; filename="${result.filePath.split("/").pop()}"`
+        );
+        return reply.send(stream);
+      } catch {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: "File not found",
+        });
+      }
     }
   );
 };
