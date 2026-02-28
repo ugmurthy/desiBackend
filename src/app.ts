@@ -18,6 +18,7 @@ import toolsRoutes from "./routes/v2/tools";
 import costsRoutes from "./routes/v2/costs";
 import billingRoutes from "./routes/v2/billing";
 import adminRoutes from "./routes/v2/admin";
+import telegramRoutes from "./routes/v2/telegram";
 import { initializeTenantClientService } from "./services/tenant-client";
 
 export async function buildApp() {
@@ -155,6 +156,7 @@ export async function buildApp() {
   await app.register(costsRoutes, { prefix: "/api/v2" });
   await app.register(billingRoutes, { prefix: "/api/v2" });
   await app.register(adminRoutes, { prefix: "/api/v2" });
+  await app.register(telegramRoutes, { prefix: "/api/v2" });
 
   return app;
 }

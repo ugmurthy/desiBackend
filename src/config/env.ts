@@ -46,6 +46,14 @@ export const envSchema = {
       type: "string" as const,
       default: "http://localhost:5173",
     },
+    TELEGRAM_BOT_TOKEN: {
+      type: "string" as const,
+      default: "",
+    },
+    TELEGRAM_DEFAULT_TENANT_ID: {
+      type: "string" as const,
+      default: "default",
+    },
   },
 };
 
@@ -63,6 +71,8 @@ export type EnvConfig = {
   OLLAMA_BASE_URL: string;
   BASE_URL: string;
   FRONTEND_BASE_URL: string;
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_DEFAULT_TENANT_ID: string;
 };
 
 declare module "fastify" {
