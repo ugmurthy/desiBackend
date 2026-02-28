@@ -62,6 +62,10 @@ export const envSchema = {
       type: "number" as const,
       default: 300000,
     },
+    TELEGRAM_WEBHOOK_SECRET: {
+      type: "string" as const,
+      default: "",
+    },
   },
 };
 
@@ -83,6 +87,7 @@ export type EnvConfig = {
   TELEGRAM_DEFAULT_TENANT_ID: string;
   TELEGRAM_POLL_INTERVAL_MS: number;
   TELEGRAM_POLL_TIMEOUT_MS: number;
+  TELEGRAM_WEBHOOK_SECRET: string;
 };
 
 declare module "fastify" {

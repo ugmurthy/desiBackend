@@ -6,6 +6,7 @@ import {
   seedDefaultProfile,
   type TelegramUpdate,
 } from "./telegram-bot";
+import { checkRateLimit, resetRateLimits } from "./telegram-rate-limit";
 
 // --- Mock Telegram API ---
 const sentMessages: { chatId: string; text: string }[] = [];
@@ -127,9 +128,8 @@ describe("Telegram Bot - US-003: Onboarding and Access Blocking", () => {
   beforeEach(() => {
     db = createTenantDb();
     adminDb = setupAdminDb();
-    // Patch getAdminDatabase to return our in-memory admin DB
-    // We can't easily mock module-level imports, so we'll use a workaround
     sentMessages.length = 0;
+    resetRateLimits();
     mockFetch();
   });
 
@@ -431,6 +431,7 @@ describe("Telegram Bot - US-006: Active Request Lifecycle Enforcement", () => {
     db = createTenantDb();
     adminDb = setupAdminDb();
     sentMessages.length = 0;
+    resetRateLimits();
     mockFetch();
   });
 
@@ -556,6 +557,7 @@ describe("Telegram Bot - US-007: Request Submission and Clarification", () => {
     db = createTenantDb();
     adminDb = setupAdminDb();
     sentMessages.length = 0;
+    resetRateLimits();
     mockFetch();
   });
 
@@ -632,5 +634,128 @@ describe("Telegram Bot - US-007: Request Submission and Clarification", () => {
     const msg = lastMessage();
     expect(msg).toBeDefined();
     expect(msg!.text).not.toContain("active request");
+  });
+});
+
+describe("Telegram Bot - US-012: Security Controls and Rate Limits", () => {
+  let db: Database;
+  const BOT_TOKEN = "test-bot-token";
+  const TENANT_ID = "test-tenant";
+  const TENANT_NAME = "TestTenant";
+
+  beforeEach(() => {
+    db = createTenantDb();
+    adminDb = setupAdminDb();
+    sentMessages.length = 0;
+    resetRateLimits();
+    mockFetch();
+  });
+
+  afterEach(() => {
+    db.close();
+    adminDb.close();
+    restoreFetch();
+  });
+
+  test("rate limiter allows requests within limit", () => {
+    const result = checkRateLimit("command", "user-1");
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBeGreaterThan(0);
+  });
+
+  test("rate limiter blocks after exceeding limit", () => {
+    // verification limit is 5 per 15 min
+    for (let i = 0; i < 5; i++) {
+      const r = checkRateLimit("verification", "user-flood");
+      expect(r.allowed).toBe(true);
+    }
+    const blocked = checkRateLimit("verification", "user-flood");
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.remaining).toBe(0);
+  });
+
+  test("rate limiter tracks keys independently", () => {
+    for (let i = 0; i < 5; i++) {
+      checkRateLimit("verification", "user-a");
+    }
+    const blockedA = checkRateLimit("verification", "user-a");
+    expect(blockedA.allowed).toBe(false);
+
+    const allowedB = checkRateLimit("verification", "user-b");
+    expect(allowedB.allowed).toBe(true);
+  });
+
+  test("resetRateLimits clears all state", () => {
+    for (let i = 0; i < 5; i++) {
+      checkRateLimit("verification", "user-reset");
+    }
+    expect(checkRateLimit("verification", "user-reset").allowed).toBe(false);
+
+    resetRateLimits();
+
+    expect(checkRateLimit("verification", "user-reset").allowed).toBe(true);
+  });
+
+  test("verification rate limit blocks excessive OTP requests", async () => {
+    const startUpdate = makeUpdate(12345, 67890, "/start");
+    await handleTelegramUpdate(db, BOT_TOKEN, TENANT_ID, TENANT_NAME, startUpdate);
+
+    // Pre-exhaust verification rate limit (5 per 15 min)
+    for (let i = 0; i < 5; i++) {
+      checkRateLimit("verification", "12345");
+    }
+
+    // Next email attempt should be rate limited
+    sentMessages.length = 0;
+    const blockedUpdate = makeUpdate(12345, 67890, "blocked@example.com");
+    await handleTelegramUpdate(db, BOT_TOKEN, TENANT_ID, TENANT_NAME, blockedUpdate);
+
+    const msg = lastMessage();
+    expect(msg).toBeDefined();
+    expect(msg!.text).toContain("Too many verification attempts");
+  });
+
+  test("command rate limit blocks excessive commands", async () => {
+    const id = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(
+      `INSERT INTO telegram_identities (id, telegramUserId, chatId, tenantId, state, verified, createdAt, updatedAt) VALUES (?, ?, ?, ?, 'ready', 1, ?, ?)`
+    ).run(id, "12345", "67890", TENANT_ID, now, now);
+
+    // Exhaust command limit (30 per min)
+    for (let i = 0; i < 30; i++) {
+      checkRateLimit("command", "12345");
+    }
+
+    sentMessages.length = 0;
+    const update = makeUpdate(12345, 67890, "/profiles");
+    await handleTelegramUpdate(db, BOT_TOKEN, TENANT_ID, TENANT_NAME, update);
+
+    const msg = lastMessage();
+    expect(msg).toBeDefined();
+    expect(msg!.text).toContain("Too many commands");
+  });
+
+  test("error messages do not expose internal API keys or tokens", async () => {
+    const id = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(
+      `INSERT INTO telegram_identities (id, telegramUserId, chatId, tenantId, state, verified, createdAt, updatedAt) VALUES (?, ?, ?, ?, 'ready', 1, ?, ?)`
+    ).run(id, "12345", "67890", TENANT_ID, now, now);
+
+    const update = makeUpdate(12345, 67890, "run something");
+    await handleTelegramUpdate(db, BOT_TOKEN, TENANT_ID, TENANT_NAME, update);
+
+    for (const msg of sentMessages) {
+      expect(msg.text).not.toMatch(/desi_sk_/);
+      expect(msg.text).not.toMatch(/Bearer /);
+      expect(msg.text).not.toMatch(/OPENAI_API_KEY/);
+      expect(msg.text).not.toMatch(/bot\d+:/);
+    }
+  });
+
+  test("unknown rate limit category allows by default", () => {
+    const result = checkRateLimit("nonexistent_category", "user-1");
+    expect(result.allowed).toBe(true);
   });
 });

@@ -8,6 +8,7 @@ import {
   type TelegramUpdate,
 } from "../../services/telegram-bot";
 import { validateDownloadToken } from "../../services/telegram-polling";
+import { checkRateLimit } from "../../services/telegram-rate-limit";
 
 const telegramRoutes: FastifyPluginAsync = async (fastify) => {
   // Seed default profile on registration
@@ -37,8 +38,28 @@ const telegramRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ ok: true });
       }
 
+      // US-012: Validate Telegram webhook secret token in production
+      const webhookSecret = fastify.config.TELEGRAM_WEBHOOK_SECRET;
+      if (webhookSecret) {
+        const headerSecret = request.headers["x-telegram-bot-api-secret-token"];
+        if (headerSecret !== webhookSecret) {
+          request.log.warn("Invalid Telegram webhook secret token");
+          return reply.status(200).send({ ok: true });
+        }
+      }
+
       const tenantId = fastify.config.TELEGRAM_DEFAULT_TENANT_ID;
       const update = request.body;
+
+      // US-012: Rate limit per chat to prevent abuse
+      const chatId = update.message?.chat?.id
+        ? String(update.message.chat.id)
+        : request.ip;
+      const rl = checkRateLimit("webhook", chatId);
+      if (!rl.allowed) {
+        request.log.warn(`Telegram webhook rate limited for chat ${chatId}`);
+        return reply.status(200).send({ ok: true });
+      }
 
       let tenantDb: Database | null = null;
       try {

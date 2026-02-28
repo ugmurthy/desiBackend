@@ -32,6 +32,7 @@ import {
   profileChangeKey,
   getClarificationRound,
 } from "./telegram-dispatch";
+import { checkRateLimit } from "./telegram-rate-limit";
 
 // --- Telegram API types ---
 
@@ -233,6 +234,19 @@ export async function handleTelegramUpdate(
 
   // --- Verified/ready user commands ---
 
+  // US-012: Rate limit commands for verified users
+  if (command) {
+    const cmdRl = checkRateLimit("command", telegramUserId);
+    if (!cmdRl.allowed) {
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        "⚠️ Too many commands. Please slow down and try again shortly."
+      );
+      return;
+    }
+  }
+
   if (command === "/profiles") {
     await handleProfiles(botToken, chatId);
     return;
@@ -363,6 +377,17 @@ async function handleEmailInput(
       botToken,
       chatId,
       "❌ That doesn't look like a valid email address. Please try again."
+    );
+    return;
+  }
+
+  // US-012: Rate limit verification attempts
+  const rl = checkRateLimit("verification", identity.telegramUserId);
+  if (!rl.allowed) {
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "⚠️ Too many verification attempts. Please try again later."
     );
     return;
   }
@@ -503,6 +528,17 @@ async function handleNewRequest(
   identity: TelegramIdentity,
   text: string
 ): Promise<void> {
+  // US-012: Rate limit request submissions
+  const rl = checkRateLimit("request_submission", identity.telegramUserId);
+  if (!rl.allowed) {
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "⚠️ Too many requests. Please wait before submitting another."
+    );
+    return;
+  }
+
   // Resolve profile
   const profileId = resolveProfileForIdentity(identity);
   if (!profileId) {
