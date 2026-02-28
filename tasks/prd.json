@@ -1,18 +1,18 @@
 {
   "project": "desiBackend",
-  "branchName": "ralph/user-resource-access-control",
-  "description": "User-Level Resource Access Control - Restrict DAGs, executions, and sub_steps to the user who created them via a new resource_ownership table, with new routes for artifacts and executions by DAG.",
+  "branchName": "ralph/telegram-frontend-integration",
+  "description": "Add a Telegram gateway for desiBackend with OTP-based one-time verification, text request execution, clarification handling, execution-scoped artifact delivery, and profile-based routing for future API targets.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Create resource_ownership table",
-      "description": "As a developer, I need a table to track which user owns which resources so that access control can be enforced.",
+      "title": "Create Telegram gateway schema and bootstrap integration",
+      "description": "As a backend engineer, I need Telegram gateway tables created through the same migration/bootstrap lifecycle as existing backend-managed tables so gateway data is durable and environment-consistent.",
       "acceptanceCriteria": [
-        "Create resource_ownership table with columns: id TEXT PRIMARY KEY, userId TEXT NOT NULL, resourceType TEXT NOT NULL, resourceId TEXT NOT NULL, createdAt INTEGER NOT NULL",
-        "Add unique index on (resourceType, resourceId) to prevent duplicates",
-        "Add index on (userId, resourceType) for efficient ownership lookups",
-        "Add initializeResourceOwnershipSchema() function called during tenant DB initialization",
-        "Typecheck passes"
+        "Add schema definitions and migrations for `telegram_identities`, `telegram_sessions`, `telegram_requests`, `telegram_dispatch_log`, and `profile_registry`",
+        "Migration path is wired into existing backend migration/bootstrap flow for admin/tenant databases",
+        "Schema includes indexes/constraints for lookup by `telegram_user_id`, `chat_id`, active request state, and idempotency keys",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 1,
       "passes": true,
@@ -20,12 +20,15 @@
     },
     {
       "id": "US-002",
-      "title": "Record ownership when DAG is created",
-      "description": "As a system, I need to record the userId when a DAG is created so ownership can be tracked.",
+      "title": "Implement OTP verification policy for Telegram linking",
+      "description": "As an unverified Telegram user, I want a secure OTP flow so I can verify once and unlock execution features.",
       "acceptanceCriteria": [
-        "When POST /dags creates a DAG, insert a record into resource_ownership with userId from request.auth.user.id, resourceType='dag', resourceId=dagId",
-        "Create helper function insertResourceOwnership(db, userId, resourceType, resourceId)",
-        "Typecheck passes"
+        "Implement OTP issuance and verification flow tied to email and Telegram identity mapping",
+        "OTP validity is 10 minutes and maximum failed attempts are capped at 3 per verification session",
+        "After successful OTP verification, Telegram identity is linked to backend user and marked verified",
+        "Failed/expired OTP paths produce clear and safe user-facing error states",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 2,
       "passes": true,
@@ -33,12 +36,15 @@
     },
     {
       "id": "US-003",
-      "title": "Record ownership when execution is created",
-      "description": "As a system, I need to record the userId when an execution is started so ownership can be tracked.",
+      "title": "Add Telegram onboarding and unverified access blocking",
+      "description": "As a Telegram user, I want `/start` onboarding and clear access boundaries so only verified users can submit execution requests.",
       "acceptanceCriteria": [
-        "When POST /dags/:id/execute creates an execution, insert ownership record with resourceType='execution'",
-        "When POST /dags/execute-definition creates an execution, insert ownership record",
-        "Typecheck passes"
+        "Implement `/start` flow that initializes conversation state and prompts for email",
+        "Execution-related commands and plain text requests are blocked for unverified users",
+        "Blocked responses provide actionable guidance to complete verification",
+        "Verified users transition to ready state for request submission",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 3,
       "passes": true,
@@ -46,13 +52,14 @@
     },
     {
       "id": "US-004",
-      "title": "Create ownership check helper functions",
-      "description": "As a developer, I need reusable helper functions for ownership checks to avoid code duplication.",
+      "title": "Seed default profile and implement profile commands",
+      "description": "As a verified Telegram user, I want `/profiles` and `/use <profile>` so I can select how requests are routed now and in future expansions.",
       "acceptanceCriteria": [
-        "Create checkResourceOwnership(db, userId, resourceType, resourceId) that returns boolean",
-        "Create getOwnedResourceIds(db, userId, resourceType) that returns array of resourceIds",
-        "Functions work with tenant database passed as parameter",
-        "Typecheck passes"
+        "Seed `profile_registry` with at least one enabled `default` profile",
+        "Implement `/profiles` command returning available profiles with concise descriptions",
+        "Implement `/use <profile>` command that validates profile existence/enabled status and persists user active profile",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 4,
       "passes": true,
@@ -60,113 +67,126 @@
     },
     {
       "id": "US-005",
-      "title": "Filter DAG list by user ownership",
-      "description": "As a user, I want to only see DAGs I created when listing DAGs.",
+      "title": "Build profile router with allowlisted target handlers",
+      "description": "As a platform owner, I want request routing abstracted behind profile handlers so target APIs can evolve without changing Telegram UX.",
       "acceptanceCriteria": [
-        "GET /dags returns only DAGs where userId matches request.auth.user.id via join with resource_ownership",
-        "Empty list returned if user has no DAGs (not an error)",
-        "Pagination still works correctly",
-        "Typecheck passes"
+        "Introduce internal profile router that resolves active profile to allowlisted handler",
+        "Implement default handler mapped to current create-and-execute backend flow",
+        "Prevent direct arbitrary endpoint selection from Telegram input",
+        "Request records persist selected `profileId` for auditability",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Restrict single DAG access by ownership",
-      "description": "As a user, I should get 403 Forbidden when accessing a DAG I don't own.",
+      "title": "Enforce one active request lifecycle and profile switch lock",
+      "description": "As a Telegram user, I want deterministic behavior so overlapping requests and mid-lifecycle profile changes do not corrupt flow state.",
       "acceptanceCriteria": [
-        "GET /dags/:id returns 403 if DAG exists but user doesn't own it",
-        "PUT /dags/:id returns 403 if user doesn't own the DAG",
-        "DELETE /dags/:id returns 403 if user doesn't own the DAG",
-        "POST /dags/:id/execute returns 403 if user doesn't own the DAG",
-        "404 still returned if DAG doesn't exist at all",
-        "Typecheck passes"
+        "Reject new request submission if user has running execution or pending clarification",
+        "Reject profile switch attempts while user has active request lifecycle",
+        "User-facing responses clearly indicate why action was blocked",
+        "State transitions are persisted atomically to avoid race conditions",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Filter execution list by user ownership",
-      "description": "As a user, I want to only see executions I created when listing executions.",
+      "title": "Submit text requests and handle clarification loop",
+      "description": "As a verified Telegram user, I want text requests and clarification prompts handled in chat so ambiguous goals can still execute successfully.",
       "acceptanceCriteria": [
-        "GET /executions returns only executions where userId matches via resource_ownership",
-        "Empty list returned if user has no executions",
-        "Pagination still works correctly",
-        "Typecheck passes"
+        "Ready-state plain text messages trigger create-and-execute request and persist `dagId`/`executionId` when available",
+        "`clarification_required` responses transition user state to awaiting clarification with request linkage",
+        "Clarification replies call resume-clarification API using original request context and profile",
+        "Loop continues until terminal success or failure without losing linkage to originating request",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Restrict single execution access by ownership",
-      "description": "As a user, I should get 403 Forbidden when accessing an execution I don't own.",
+      "title": "Implement polling-based execution lifecycle notifications",
+      "description": "As a Telegram user, I want concise lifecycle notifications so I know whether my request is accepted, completed, or failed.",
       "acceptanceCriteria": [
-        "GET /executions/:id returns 403 if execution exists but user doesn't own it",
-        "GET /executions/:id/details returns 403 if user doesn't own the execution",
-        "GET /executions/:id/sub-steps returns 403 if user doesn't own the execution",
-        "DELETE /executions/:id returns 403 if user doesn't own the execution",
-        "POST /executions/:id/resume returns 403 if user doesn't own the execution",
-        "404 still returned if execution doesn't exist at all",
-        "Typecheck passes"
+        "Polling worker monitors execution status until terminal state",
+        "Send only major lifecycle messages: accepted, clarification-needed, completed, failed",
+        "Completion and failure messages include execution identifier",
+        "Polling cadence and timeout configuration are environment-driven",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 8,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Create GET /artifacts/:userId route",
-      "description": "As a user, I want to retrieve all artifact names (files) created by my executions using readFile or writeFile tools.",
+      "title": "Enforce execution-scoped artifact retrieval",
+      "description": "As a Telegram user, I want artifact results limited to my current execution so I never receive files from unrelated runs.",
       "acceptanceCriteria": [
-        "GET /artifacts/:userId returns list of artifacts with: path, toolName (readFile|writeFile), executionId, createdAt",
-        "Only returns artifacts from executions owned by the requesting user",
-        "Returns 403 if requesting user's id doesn't match :userId parameter",
-        "Extracts file paths from sub_steps where toolOrPromptName is 'readFile' or 'writeFile'",
-        "File path extracted from toolOrPromptParams JSON field",
-        "Returns empty array if no artifacts found",
-        "Typecheck passes"
+        "Artifact selection pipeline accepts current `executionId` and filters results strictly to that execution",
+        "No artifacts from other execution IDs are eligible for dispatch",
+        "If required, augment backend artifact query path to support execution-scoped retrieval efficiently",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 9,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Create GET /dags/executions/:executionId route",
-      "description": "As a user, I want to get all executions for a DAG given any execution ID from that DAG.",
+      "title": "Deliver artifacts as Telegram attachments with link fallback",
+      "description": "As a Telegram user, I want output artifacts sent directly as files, with safe fallback when files are too large for Telegram.",
       "acceptanceCriteria": [
-        "GET /dags/executions/:executionId looks up the execution's dagId, then returns all executions for that DAG",
-        "Response includes DAG info joined with executions: dagId, dagTitle, dagStatus, and array of executions",
-        "Returns 403 if user doesn't own the specified execution",
-        "Returns 404 if execution doesn't exist",
-        "All returned executions must also be owned by the user (filter applied)",
-        "Typecheck passes"
+        "Dispatch artifacts as Telegram file attachments by default",
+        "When file exceeds Telegram limits, send signed download link with expiration",
+        "User receives concise summary before or alongside artifact payload",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 10,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Migration script for existing resources",
-      "description": "As an admin, I need existing DAGs and executions to be assigned ownership so they remain accessible after the access control feature is deployed.",
+      "title": "Add idempotent outbound dispatch and audit logging",
+      "description": "As a platform owner, I want resilient and auditable delivery so retries do not duplicate user-visible messages and operations remain traceable.",
       "acceptanceCriteria": [
-        "Create migration script that assigns all existing DAGs to user ugmurthy@gmail.com",
-        "Create migration script that assigns all existing executions to user ugmurthy@gmail.com",
-        "Script looks up userId by email from the users table",
-        "Script is idempotent (safe to run multiple times)",
-        "Script logs number of resources migrated",
-        "Script can be run via bun run migrate:ownership or similar command",
-        "Typecheck passes"
+        "Use dispatch idempotency keys for lifecycle messages and artifact sends",
+        "Webhook/polling retries do not produce duplicate Telegram messages for same event",
+        "Audit logs include onboarding, request dispatch, clarification events, completion/failure, artifact delivery, and profile used",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 11,
-      "passes": true,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Apply gateway security controls and rate limits",
+      "description": "As a platform owner, I want strong gateway security defaults so Telegram integration cannot leak credentials or be abused.",
+      "acceptanceCriteria": [
+        "Gateway never returns backend API keys or session tokens to Telegram clients",
+        "Add rate limiting for verification attempts, command handling, and request submission paths",
+        "Production webhook path validates Telegram secret token before processing updates",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 12,
+      "passes": false,
       "notes": ""
     }
   ]

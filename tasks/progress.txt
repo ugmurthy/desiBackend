@@ -12,6 +12,10 @@
 - userId comes from `request.auth.user.id` set by authenticate middleware
 - tenantDb comes from `request.auth.tenantDb` for direct DB access
 - For list filtering, use getOwnedResourceIds() then filter after SDK fetch (SDK doesn't support JOIN)
+- Telegram gateway schemas: tenant tables in `telegram-schema.ts` → `initializeTelegramSchemas(db)`, admin table → `initializeProfileRegistrySchema(db)`
+- Pre-existing typecheck errors in client-scripts/, desiClient/, scripts/ — not from gateway code
+- OTP service: `src/services/telegram-otp.ts` — issueOtp(), verifyOtp(), completeVerification(), identity CRUD helpers
+- OTP uses SHA-256 hashing (not bcrypt) for fast verification of short-lived codes
 ---
 
 ## 2026-02-04 - US-001, US-002, US-003, US-004, US-005
@@ -53,5 +57,73 @@ Thread: https://ampcode.com/threads/T-019c281d-02c8-72b8-888d-b73332c35f17
   - Scripts directory may be in .gitignore, use `git add -f` to force add
   - Tenant DBs are at ~/.desiAgent/tenants/{tenantId}/agent.db
   - initializeResourceOwnershipSchema() creates table if missing (useful for migration)
+---
+
+## 2026-02-28 - US-001
+Thread: https://ampcode.com/threads/T-019ca414-d2c9-7558-bc76-f0e5e18bc9a8
+- Created `src/db/telegram-schema.ts` with schema definitions and init functions for all 5 gateway tables
+- Tenant DB tables: `telegram_identities`, `telegram_sessions`, `telegram_requests`, `telegram_dispatch_log`
+- Admin DB table: `profile_registry`
+- Wired `initializeTelegramSchemas()` into `initializeTenantUserSchema()` in user-schema.ts
+- Wired `initializeProfileRegistrySchema()` into `initializeAdminDatabase()` in admin-schema.ts
+- Indexes: unique on `telegramUserId`, indexes on `chatId`, `userId`, `state`, `executionId`, unique `idempotencyKey`, `name`/`enabled` on profiles
+- Files changed: src/db/telegram-schema.ts, src/db/user-schema.ts, src/db/admin-schema.ts
+- **Learnings for future iterations:**
+  - System-wide tables (profile_registry) go in admin DB; per-user/per-tenant tables go in tenant DB
+  - Use `CREATE TABLE IF NOT EXISTS` + `CREATE INDEX IF NOT EXISTS` pattern for idempotent bootstrap
+  - Pre-existing typecheck errors exist in client-scripts/, desiClient/, scripts/ — ignore them
+---
+
+## 2026-02-28 - US-002
+Thread: https://ampcode.com/threads/T-019ca414-d2c9-7558-bc76-f0e5e18bc9a8
+- Created `src/services/telegram-otp.ts` with full OTP issuance and verification flow
+- OTP generation: 6-digit code, SHA-256 hashed, stored in telegram_sessions
+- OTP validity: 10 minutes (OTP_TTL_SECONDS), max 3 failed attempts (OTP_MAX_ATTEMPTS)
+- Active sessions are invalidated before new OTP issuance (prevents stale sessions)
+- Identity state transitions: awaiting_email → awaiting_otp → verified
+- On success: links Telegram identity to backend user via email lookup in users table
+- On failure: clear error messages with remaining attempts count; resets to awaiting_email on exhaustion
+- Sends OTP via existing email service (DesiAgentEmailProvider)
+- Files changed: src/services/telegram-otp.ts
+- **Learnings for future iterations:**
+  - Use SHA-256 for OTP hashing (not bcrypt) — OTPs are short-lived and need fast verification
+  - Always invalidate previous active sessions before issuing new OTP
+  - Use non-null assertion (!) for Uint8Array access with strict TypeScript
+---
+
+## 2026-02-28 - US-003
+Thread: https://ampcode.com/threads/T-019ca41e-0d0a-7058-977b-f3ef23fbbdf7
+- Created `src/services/telegram-bot.ts` with full state machine: /start, email input, OTP input, access blocking
+- Created `src/routes/v2/telegram.ts` webhook route (POST /api/v2/telegram/webhook)
+- Added TELEGRAM_BOT_TOKEN and TELEGRAM_DEFAULT_TENANT_ID to env config
+- Registered telegram route in app.ts
+- /start creates identity in awaiting_email state, prompts for email
+- Email input validates format, issues OTP via telegram-otp service
+- OTP input calls completeVerification, transitions to ready state
+- Unverified users blocked from commands/text with actionable guidance
+- Verified users auto-transition to ready on first interaction
+- Created 14 unit tests covering all state transitions and edge cases
+- Files changed: src/services/telegram-bot.ts, src/services/telegram-bot.test.ts, src/routes/v2/telegram.ts, src/config/env.ts, src/app.ts
+- **Learnings for future iterations:**
+  - Telegram webhook always returns 200 OK (even on errors) to prevent retry floods
+  - State machine: new → awaiting_email → awaiting_otp → verified → ready
+  - parseCommand() separates /command from args for clean routing
+  - Mock globalThis.fetch for Telegram API in tests
+  - In-memory SQLite with initializeTelegramSchemas() works for unit tests
+---
+
+## 2026-02-28 - US-004
+Thread: https://ampcode.com/threads/T-019ca41e-0d0a-7058-977b-f3ef23fbbdf7
+- seedDefaultProfile() creates 'default' profile in admin DB profile_registry (idempotent)
+- /profiles lists enabled profiles from admin DB with descriptions
+- /use <profile> validates profile exists and is enabled, persists activeProfileId on telegram_identities
+- Profile commands only accessible for verified/ready users
+- Seed runs on telegram route plugin registration
+- Tests verify /profiles blocked for unverified, /use without args shows usage, /use with invalid profile returns error
+- Files changed: src/services/telegram-bot.ts (same commit as US-003)
+- **Learnings for future iterations:**
+  - Profile registry lives in admin DB, accessed via getAdminDatabase()
+  - seedDefaultProfile() is idempotent — checks before insert
+  - activeProfileId stored on telegram_identities for per-user profile selection
 ---
 
