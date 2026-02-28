@@ -4,6 +4,7 @@ import { homedir } from "os";
 import { mkdirSync, existsSync } from "fs";
 import { initDB } from "@ugm/desiagent";
 import { initializeApiKeySchema } from "./api-key-schema";
+import { initializeTelegramSchemas } from "./telegram-schema";
 import { runMigrations } from "./migrations";
 import { tenantMigrations } from "./migrations/tenant";
 
@@ -215,6 +216,7 @@ export async function initializeTenantUserSchema(tenantId: string): Promise<Data
   initializeSessionSchema(db);
   initializeAuthLogSchema(db);
   initializeResourceOwnershipSchema(db);
+  initializeTelegramSchemas(db);
   
   // Run any pending migrations for this tenant
   runMigrations(db, tenantMigrations, `tenant:${tenantId}`);

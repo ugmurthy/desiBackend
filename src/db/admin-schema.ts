@@ -4,6 +4,7 @@ import { homedir } from "os";
 import { mkdirSync, existsSync } from "fs";
 import { runMigrations } from "./migrations";
 import { adminMigrations } from "./migrations/admin";
+import { initializeProfileRegistrySchema } from "./telegram-schema";
 
 export type TenantStatus = "active" | "suspended" | "pending";
 export type TenantPlan = "free" | "pro" | "enterprise";
@@ -148,6 +149,9 @@ export function initializeAdminDatabase(): Database {
     CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
     CREATE INDEX IF NOT EXISTS idx_agents_active ON agents(active);
   `);
+
+  // Initialize Telegram profile registry in admin DB
+  initializeProfileRegistrySchema(adminDb);
 
   // Run any pending migrations
   runMigrations(adminDb, adminMigrations, "admin.db");
