@@ -5,6 +5,13 @@ import { getTenantDbPath } from "../db/user-schema";
 import { updateRequestState } from "./telegram-request";
 import { getTenantClientService } from "./tenant-client";
 import { getExecutionArtifacts } from "./telegram-artifacts";
+import {
+  recordDispatch,
+  hasDispatched,
+  completionKey,
+  failureKey,
+  artifactDeliveryKey,
+} from "./telegram-dispatch";
 
 // Environment-driven polling configuration
 const DEFAULT_POLL_INTERVAL_MS = 5000;
@@ -140,6 +147,7 @@ export interface PollParams {
   chatId: string;
   requestId: string;
   executionId: string;
+  identityId?: string;
 }
 
 export function startExecutionPolling(params: PollParams): void {
@@ -175,17 +183,47 @@ export function startExecutionPolling(params: PollParams): void {
             params.requestId,
             status === "completed" ? "completed" : "failed"
           );
+
+          // US-011: Idempotent dispatch — skip if already sent
+          const idemKey =
+            status === "completed"
+              ? completionKey(params.requestId)
+              : failureKey(params.requestId);
+          const alreadySent = hasDispatched(db, idemKey);
+
+          if (!alreadySent) {
+            if (status === "completed") {
+              await sendMessage(
+                params.botToken,
+                params.chatId,
+                `✅ Execution completed!\n\n🔹 Execution: \`${params.executionId}\``
+              );
+            } else {
+              await sendMessage(
+                params.botToken,
+                params.chatId,
+                `❌ Execution failed.\n\n🔹 Execution: \`${params.executionId}\``
+              );
+            }
+
+            // Record dispatch for audit and idempotency
+            if (params.identityId) {
+              recordDispatch(db, {
+                identityId: params.identityId,
+                chatId: params.chatId,
+                requestId: params.requestId,
+                eventType: status === "completed" ? "completion" : "failure",
+                idempotencyKey: idemKey,
+                payload: JSON.stringify({ executionId: params.executionId }),
+              });
+            }
+          }
         } finally {
           db.close();
         }
 
+        // US-010: Deliver artifacts on completion
         if (status === "completed") {
-          await sendMessage(
-            params.botToken,
-            params.chatId,
-            `✅ Execution completed!\n\n🔹 Execution: \`${params.executionId}\``
-          );
-          // US-010: Deliver artifacts on completion
           try {
             await deliverArtifacts(
               params.botToken,
@@ -196,12 +234,6 @@ export function startExecutionPolling(params: PollParams): void {
           } catch {
             // Artifact delivery failure should not break the flow
           }
-        } else {
-          await sendMessage(
-            params.botToken,
-            params.chatId,
-            `❌ Execution failed.\n\n🔹 Execution: \`${params.executionId}\``
-          );
         }
         return;
       }

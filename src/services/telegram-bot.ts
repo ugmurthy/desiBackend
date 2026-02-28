@@ -21,6 +21,17 @@ import {
   resolveHandler,
 } from "./telegram-profile-router";
 import { startExecutionPolling } from "./telegram-polling";
+import {
+  recordDispatch,
+  hasDispatched,
+  onboardingKey,
+  requestAcceptedKey,
+  clarificationKey,
+  completionKey,
+  failureKey,
+  profileChangeKey,
+  getClarificationRound,
+} from "./telegram-dispatch";
 
 // --- Telegram API types ---
 
@@ -318,6 +329,14 @@ async function handleStart(
     chatId,
     "👋 Welcome to desiAgent!\n\nTo get started, please enter your registered email address."
   );
+
+  // US-011: Audit log onboarding
+  recordDispatch(db, {
+    identityId: identity.id,
+    chatId,
+    eventType: "onboarding",
+    idempotencyKey: onboardingKey(identity.id),
+  });
 }
 
 async function handleEmailInput(
@@ -464,6 +483,15 @@ async function handleUseProfile(
     chatId,
     `✅ Active profile set to *${profile.name}*.`
   );
+
+  // US-011: Audit log profile change
+  recordDispatch(db, {
+    identityId: identity.id,
+    chatId,
+    eventType: "profile_change",
+    idempotencyKey: profileChangeKey(identity.id, profile.id),
+    payload: JSON.stringify({ profileName: profile.name, profileId: profile.id }),
+  });
 }
 
 // --- US-005 + US-007: New request submission via profile router ---
@@ -529,6 +557,16 @@ async function handleNewRequest(
         chatId,
         `❓ *Clarification needed:*\n\n${result.clarificationQuery}\n\nPlease reply with your answer.`
       );
+      // US-011: Audit log clarification
+      const round = getClarificationRound(db, request.id);
+      recordDispatch(db, {
+        identityId: identity.id,
+        chatId,
+        requestId: request.id,
+        eventType: "clarification",
+        idempotencyKey: clarificationKey(request.id, round),
+        payload: JSON.stringify({ clarificationQuery: result.clarificationQuery }),
+      });
       return;
     }
 
@@ -543,6 +581,15 @@ async function handleNewRequest(
         chatId,
         `❌ Request failed: ${result.error ?? "Unknown error"}`
       );
+      // US-011: Audit log failure
+      recordDispatch(db, {
+        identityId: identity.id,
+        chatId,
+        requestId: request.id,
+        eventType: "failure",
+        idempotencyKey: failureKey(request.id),
+        payload: JSON.stringify({ error: result.error }),
+      });
       return;
     }
 
@@ -557,6 +604,15 @@ async function handleNewRequest(
       chatId,
       `✅ Request accepted!\n\n🔹 Execution: \`${result.executionId}\`\n\nYou'll be notified when it completes.`
     );
+    // US-011: Audit log request accepted
+    recordDispatch(db, {
+      identityId: identity.id,
+      chatId,
+      requestId: request.id,
+      eventType: "request_accepted",
+      idempotencyKey: requestAcceptedKey(request.id),
+      payload: JSON.stringify({ executionId: result.executionId, dagId: result.dagId }),
+    });
 
     // US-008: Start polling for execution lifecycle notifications
     if (result.executionId) {
@@ -566,6 +622,7 @@ async function handleNewRequest(
         tenantId: identity.tenantId,
         requestId: request.id,
         executionId: result.executionId,
+        identityId: identity.id,
       });
     }
   } catch (error) {
@@ -576,6 +633,15 @@ async function handleNewRequest(
       chatId,
       `❌ Request failed: ${msg}`
     );
+    // US-011: Audit log failure
+    recordDispatch(db, {
+      identityId: identity.id,
+      chatId,
+      requestId: request.id,
+      eventType: "failure",
+      idempotencyKey: failureKey(request.id),
+      payload: JSON.stringify({ error: msg }),
+    });
   }
 }
 
@@ -628,6 +694,16 @@ async function handleClarificationResponse(
         chatId,
         `❓ *Additional clarification needed:*\n\n${result.clarificationQuery}\n\nPlease reply with your answer.`
       );
+      // US-011: Audit log clarification
+      const round = getClarificationRound(db, activeReq.id);
+      recordDispatch(db, {
+        identityId: identity.id,
+        chatId,
+        requestId: activeReq.id,
+        eventType: "clarification",
+        idempotencyKey: clarificationKey(activeReq.id, round),
+        payload: JSON.stringify({ clarificationQuery: result.clarificationQuery }),
+      });
       return;
     }
 
@@ -638,6 +714,15 @@ async function handleClarificationResponse(
         chatId,
         `❌ Request failed: ${result.error ?? "Unknown error"}`
       );
+      // US-011: Audit log failure
+      recordDispatch(db, {
+        identityId: identity.id,
+        chatId,
+        requestId: activeReq.id,
+        eventType: "failure",
+        idempotencyKey: failureKey(activeReq.id),
+        payload: JSON.stringify({ error: result.error }),
+      });
       return;
     }
 
@@ -654,6 +739,26 @@ async function handleClarificationResponse(
 
     await sendTelegramMessage(botToken, chatId, successMsg);
 
+    // US-011: Audit log completion/accepted
+    if (result.executionId) {
+      recordDispatch(db, {
+        identityId: identity.id,
+        chatId,
+        requestId: activeReq.id,
+        eventType: "request_accepted",
+        idempotencyKey: requestAcceptedKey(activeReq.id),
+        payload: JSON.stringify({ executionId: result.executionId, dagId: result.dagId }),
+      });
+    } else {
+      recordDispatch(db, {
+        identityId: identity.id,
+        chatId,
+        requestId: activeReq.id,
+        eventType: "completion",
+        idempotencyKey: completionKey(activeReq.id),
+      });
+    }
+
     // US-008: Start polling for execution lifecycle notifications
     if (result.executionId) {
       startExecutionPolling({
@@ -662,6 +767,7 @@ async function handleClarificationResponse(
         tenantId: identity.tenantId,
         requestId: activeReq.id,
         executionId: result.executionId,
+        identityId: identity.id,
       });
     }
   } catch (error) {
@@ -672,5 +778,14 @@ async function handleClarificationResponse(
       chatId,
       `❌ Request failed: ${msg}`
     );
+    // US-011: Audit log failure
+    recordDispatch(db, {
+      identityId: identity.id,
+      chatId,
+      requestId: activeReq.id,
+      eventType: "failure",
+      idempotencyKey: failureKey(activeReq.id),
+      payload: JSON.stringify({ error: msg }),
+    });
   }
 }
