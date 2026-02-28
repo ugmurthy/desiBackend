@@ -16,6 +16,11 @@
 - Pre-existing typecheck errors in client-scripts/, desiClient/, scripts/ — not from gateway code
 - OTP service: `src/services/telegram-otp.ts` — issueOtp(), verifyOtp(), completeVerification(), identity CRUD helpers
 - OTP uses SHA-256 hashing (not bcrypt) for fast verification of short-lived codes
+- Polling worker opens its own DB connection (webhook handler closes DB after handleTelegramUpdate returns)
+- Avoid circular imports: telegram-polling.ts has its own sendMessage/sendDocument — does not import from telegram-bot.ts
+- Idempotent dispatch: use telegram-dispatch.ts recordDispatch() with idempotencyKey to prevent duplicate Telegram messages
+- Artifact delivery: telegram-artifacts.ts getExecutionArtifacts(tenantId, executionId) strictly scopes to one executionId
+- Download tokens: in-memory Map with 1hr TTL, validated via validateDownloadToken() from telegram-polling.ts
 ---
 
 ## 2026-02-04 - US-001, US-002, US-003, US-004, US-005
@@ -125,5 +130,109 @@ Thread: https://ampcode.com/threads/T-019ca41e-0d0a-7058-977b-f3ef23fbbdf7
   - Profile registry lives in admin DB, accessed via getAdminDatabase()
   - seedDefaultProfile() is idempotent — checks before insert
   - activeProfileId stored on telegram_identities for per-user profile selection
+  - Profile router: resolveHandler(profileId) looks up handler name from admin DB profile_registry, then maps to allowlisted handler
+  - Request lifecycle: getActiveRequest() checks for state IN ('pending','executing','awaiting_clarification')
+  - Clarification loop: awaiting_clarification requests route text to handleClarification(), not new request
+  ---
+
+  ## 2026-02-28 - US-005
+  Thread: https://ampcode.com/threads/T-019ca423-bdf7-72be-a47f-af98a60d83d1
+  - Created `src/services/telegram-profile-router.ts` with ProfileHandler interface and DefaultProfileHandler
+  - DefaultProfileHandler maps to create-and-execute SDK flow (client.dags.createAndExecuteFromGoal)
+  - Handler registry (Map<string, ProfileHandler>) allowlists handlers by name
+  - resolveHandler(profileId): looks up profile in admin DB → gets handler name → returns allowlisted handler
+  - resolveProfileForIdentity(): returns activeProfileId or falls back to default profile
+  - Request records persist selected profileId for auditability
+  - Files changed: src/services/telegram-profile-router.ts, src/services/telegram-bot.ts
+  - **Learnings for future iterations:**
+    - Profile handler abstraction decouples Telegram UX from target API
+    - Use `as unknown as T` or type assertions for SDK result types with discriminated unions
+    - Handler registry prevents arbitrary endpoint selection from Telegram input
+  ---
+
+  ## 2026-02-28 - US-006
+  Thread: https://ampcode.com/threads/T-019ca423-bdf7-72be-a47f-af98a60d83d1
+  - Reject new request if user has running execution or pending clarification (getActiveRequest checks)
+  - Reject /use profile switch while user has active request lifecycle
+  - User-facing messages clearly explain why action was blocked
+  - State transitions use updateRequestExecution/updateRequestState atomically
+  - Created `src/services/telegram-request.ts` with request lifecycle DB helpers
+  - Files changed: src/services/telegram-request.ts, src/services/telegram-bot.ts, src/services/telegram-bot.test.ts
+  - **Learnings for future iterations:**
+    - Active request states: pending, executing, awaiting_clarification
+    - Terminal states: completed, failed — these don't block new submissions
+    - awaiting_clarification routes to clarification handler, not blocking
+  ---
+
+  ## 2026-02-28 - US-007
+  Thread: https://ampcode.com/threads/T-019ca423-bdf7-72be-a47f-af98a60d83d1
+  - Ready-state plain text triggers create-and-execute via profile router
+  - clarification_required responses transition request to awaiting_clarification
+  - Clarification replies call handleClarification using original request context (dagId + profileId)
+  - Loop continues until terminal success or failure without losing request linkage
+  - handleNewRequest and handleClarificationResponse added to telegram-bot.ts
+  - 10 new tests covering all three stories
+  - Files changed: src/services/telegram-bot.ts, src/services/telegram-bot.test.ts
+  - **Learnings for future iterations:**
+    - Request record stores profileId and dagId for context persistence across clarification rounds
+    - Missing dagId on clarification gracefully fails and marks request as failed
+    - Always catch handler errors and update request state to 'failed'
+  ---
+
+## 2026-02-28 - US-008
+Thread: https://ampcode.com/threads/T-019ca42c-b778-768c-949d-60cbed324f49
+- Created `src/services/telegram-polling.ts` with setTimeout-based polling worker
+- Polls `client.executions.get(executionId)` until terminal state (completed/failed)
+- Sends lifecycle notifications: accepted (via bot), completed, failed, timeout
+- Polling cadence (TELEGRAM_POLL_INTERVAL_MS) and timeout (TELEGRAM_POLL_TIMEOUT_MS) are environment-driven
+- Polling worker opens its own DB connection since webhook handler closes DB after returning
+- Wired into handleNewRequest and handleClarificationResponse in telegram-bot.ts
+- Files changed: src/services/telegram-polling.ts, src/services/telegram-bot.ts, src/config/env.ts
+- **Learnings for future iterations:**
+  - Async polling workers need their own DB connections — webhook DB is closed by the time polling runs
+  - Avoid circular imports: polling service has its own sendMessage helper
+  - Use setTimeout recursion (not setInterval) for polling — cleaner termination control
+---
+
+## 2026-02-28 - US-009
+Thread: https://ampcode.com/threads/T-019ca42c-b778-768c-949d-60cbed324f49
+- Created `src/services/telegram-artifacts.ts` with execution-scoped artifact retrieval
+- `getExecutionArtifacts(tenantId, executionId)` fetches sub-steps and extracts readFile/writeFile artifacts
+- Strict scope: only returns artifacts from the specific executionId, no cross-execution leakage
+- Reuses same artifact extraction pattern from routes/v2/artifacts.ts
+- Files changed: src/services/telegram-artifacts.ts
+- **Learnings for future iterations:**
+  - Sub-steps may have executionId field — always verify it matches the target
+  - toolOrPromptParams can be string (JSON) or object — handle both
+---
+
+## 2026-02-28 - US-010
+Thread: https://ampcode.com/threads/T-019ca42c-b778-768c-949d-60cbed324f49
+- Added sendDocument function using Telegram sendDocument API with FormData/Bun.file()
+- Artifacts delivered as Telegram file attachments on execution completion (via polling worker)
+- Files exceeding 50MB fall back to signed download links (1-hour expiry)
+- Download tokens stored in in-memory Map, validated via validateDownloadToken()
+- Added GET /api/v2/telegram/download/:token route for signed URL file serving
+- Concise summary sent before artifact payloads listing all artifact filenames
+- Files changed: src/services/telegram-polling.ts, src/routes/v2/telegram.ts
+- **Learnings for future iterations:**
+  - Telegram Bot API sendDocument limit is 50MB
+  - Use Bun.file() for streaming file uploads via FormData
+  - In-memory download tokens work for single-instance; would need Redis/DB for multi-instance
+---
+
+## 2026-02-28 - US-011
+Thread: https://ampcode.com/threads/T-019ca42c-b778-768c-949d-60cbed324f49
+- Created `src/services/telegram-dispatch.ts` with idempotent dispatch and audit logging
+- recordDispatch() checks idempotencyKey before insert — prevents duplicate Telegram messages
+- Key generators: onboardingKey, requestAcceptedKey, clarificationKey, completionKey, failureKey, artifactDeliveryKey, profileChangeKey
+- Integrated audit logging across all event types: onboarding, request_accepted, clarification, completion, failure, profile_change
+- Polling worker uses hasDispatched() check before sending completion/failure notifications
+- getClarificationRound() counts existing clarification dispatches for unique round-based keys
+- Files changed: src/services/telegram-dispatch.ts, src/services/telegram-bot.ts, src/services/telegram-polling.ts
+- **Learnings for future iterations:**
+  - Idempotency keys are scoped per event type + entity (e.g., completion:requestId)
+  - Clarification rounds need incrementing keys since same request can have multiple rounds
+  - recordDispatch returns boolean: true if recorded, false if already dispatched
 ---
 
