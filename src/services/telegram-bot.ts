@@ -33,6 +33,7 @@ import {
   getClarificationRound,
 } from "./telegram-dispatch";
 import { checkRateLimit } from "./telegram-rate-limit";
+import { insertResourceOwnership } from "../db/user-schema";
 
 // --- Telegram API types ---
 
@@ -588,6 +589,9 @@ async function handleNewRequest(
         dagId: result.dagId,
         state: "awaiting_clarification",
       });
+      if (identity.userId && result.dagId) {
+        insertResourceOwnership(db, identity.userId, "dag", result.dagId);
+      }
       await sendTelegramMessage(
         botToken,
         chatId,
@@ -612,6 +616,9 @@ async function handleNewRequest(
         dagId: result.dagId,
         state: "failed",
       });
+      if (identity.userId && result.dagId) {
+        insertResourceOwnership(db, identity.userId, "dag", result.dagId);
+      }
       await sendTelegramMessage(
         botToken,
         chatId,
@@ -635,6 +642,12 @@ async function handleNewRequest(
       executionId: result.executionId,
       state: "executing",
     });
+    if (identity.userId && result.dagId) {
+      insertResourceOwnership(db, identity.userId, "dag", result.dagId);
+    }
+    if (identity.userId && result.executionId) {
+      insertResourceOwnership(db, identity.userId, "execution", result.executionId);
+    }
     await sendTelegramMessage(
       botToken,
       chatId,
@@ -768,6 +781,9 @@ async function handleClarificationResponse(
       executionId: result.executionId,
       state: result.executionId ? "executing" : "completed",
     });
+    if (identity.userId && result.executionId) {
+      insertResourceOwnership(db, identity.userId, "execution", result.executionId);
+    }
 
     const successMsg = result.executionId
       ? `✅ Clarification accepted! Execution started.\n\n🔹 Execution: \`${result.executionId}\``

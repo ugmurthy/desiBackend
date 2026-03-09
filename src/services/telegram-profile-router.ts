@@ -38,9 +38,10 @@ class DefaultProfileHandler implements ProfileHandler {
     agentName?: string;
   }): Promise<ProfileHandlerResult> {
     const client = await getTenantClientService().getClient(params.tenantId);
+    const goalText = `${params.goalText}\nWrite the final report to a markdown file.`;
     const result = await client.dags.createAndExecuteFromGoal({
-      goalText: params.goalText,
-      agentName: params.agentName ?? "default",
+      goalText,
+      agentName: params.agentName ?? process.env.DEFAULT_AGENT_NAME ?? "DecomposerV8",
     });
 
     if (result.status === "clarification_required") {
@@ -103,11 +104,15 @@ class DefaultProfileHandler implements ProfileHandler {
       };
     }
 
+    // Clarification resolved — now execute the DAG
     const r = result as { status: "success"; dagId: string };
+    const dagId = r.dagId;
+    const execResult = await client.dags.execute(dagId);
     return {
       success: true,
-      dagId: r.dagId,
-      status: r.status,
+      dagId,
+      executionId: execResult.id,
+      status: execResult.status,
     };
   }
 }

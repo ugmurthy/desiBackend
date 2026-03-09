@@ -337,7 +337,7 @@ class DagsService {
 
   /** List DAGs with filters */
   async list(params: {
-    status?: 'pending' | 'active' | 'paused' | 'completed' | 'failed' | 'cancelled';
+    status?: 'success' | 'pending' | 'active' | 'paused' | 'completed' | 'failed' | 'cancelled';
     createdAfter?: string;
     createdBefore?: string;
     limit?: number;
@@ -890,6 +890,27 @@ export class ApiClient {
     };
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** Telegram webhook endpoint */
+  async postApiV2TelegramWebhook(): Promise<Record<string, unknown>> {
+    let url = '/api/v2/telegram/webhook';
+
+    const config: AxiosRequestConfig = {};
+
+    const response = await this.client.post<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** Download artifact via signed token */
+  async getApiV2TelegramDownloadByToken(params: { token: string }): Promise<void> {
+    let url = '/api/v2/telegram/download/{token}';
+    url = url.replace('{' + 'token' + '}', encodeURIComponent(String(params.token)));
+
+    const config: AxiosRequestConfig = {};
+
+    const response = await this.client.get<void>(url, config);
     return response.data;
   }
 }

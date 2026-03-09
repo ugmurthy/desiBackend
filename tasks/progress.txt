@@ -234,5 +234,24 @@ Thread: https://ampcode.com/threads/T-019ca42c-b778-768c-949d-60cbed324f49
   - Idempotency keys are scoped per event type + entity (e.g., completion:requestId)
   - Clarification rounds need incrementing keys since same request can have multiple rounds
   - recordDispatch returns boolean: true if recorded, false if already dispatched
+- Rate limiting: telegram-rate-limit.ts — in-memory sliding window per category (verification, command, request_submission, webhook)
+- Webhook secret: validate X-Telegram-Bot-Api-Secret-Token header when TELEGRAM_WEBHOOK_SECRET is set
+---
+
+## 2026-02-28 - US-012
+Thread: https://ampcode.com/threads/T-019ca436-1f86-74fc-9641-a72ccda83bd3
+- Created `src/services/telegram-rate-limit.ts` with in-memory sliding window rate limiter
+- Rate limit categories: verification (5/15min), command (30/min), request_submission (10/min), webhook (60/min)
+- Added `TELEGRAM_WEBHOOK_SECRET` env var to validate `X-Telegram-Bot-Api-Secret-Token` header on webhook
+- Webhook returns 200 silently on invalid secret (prevents retry floods)
+- Rate limiting applied to: email verification (OTP issuance), verified-user commands, new request submission, webhook per-chat
+- Security audit: confirmed no API keys, session tokens, or bot tokens are exposed in Telegram messages
+- Added 8 new tests covering rate limiter unit logic, integration with bot handlers, and credential leak checks
+- Files changed: src/services/telegram-rate-limit.ts, src/services/telegram-bot.ts, src/services/telegram-bot.test.ts, src/routes/v2/telegram.ts, src/config/env.ts
+- **Learnings for future iterations:**
+  - In-memory rate limiting works for single-instance; would need Redis for multi-instance
+  - Telegram webhook should always return 200 even on auth failures to prevent Telegram retry storms
+  - Pre-exhaust rate limits in tests using checkRateLimit() directly to avoid triggering real side effects (e.g., email sending)
+  - resetRateLimits() must be called in beforeEach of all test suites to prevent cross-test rate limit pollution
 ---
 

@@ -29,6 +29,8 @@ const response = await client._default.healthCheck(/* params */);
 - `_default.healthCheck()`
 - `_default.healthCheckReady()`
 - `_default.artifacts(options?)`
+- `_default.postApiV2TelegramWebhook()`
+- `_default.getApiV2TelegramDownloadByToken(token)`
 
 ### auth
 
@@ -162,6 +164,30 @@ Retrieve all artifact names (files) created by the authenticated user's executio
 |----------|------|----------|-------------|
 | `artifacts` | array of object | No |  |
 | `artifact` | object | No |  |
+
+---
+
+#### `_default.postApiV2TelegramWebhook()`
+
+Receives incoming updates from the Telegram Bot API
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `ok` | boolean | No |  |
+
+---
+
+#### `_default.getApiV2TelegramDownloadByToken(token)`
+
+Serves a file artifact using a time-limited signed download token
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `token` | string | Yes | |
 
 ---
 
@@ -560,15 +586,18 @@ Creates a new agent with the specified configuration. The agent name must be uni
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `name` | string | Yes |  |
-| `version` | string | Yes |  |
+| `version` | string | No |  |
+| `description` | string | No |  |
 | `systemPrompt` | string | Yes |  |
-| `params` | object | No |  |
+| `provider` | string enum: [`openai`, `openrouter`, `ollama`] | No |  |
+| `model` | string | No |  |
+| `metadata` | object | No |  |
 
 **Response:**
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `id` | string (uuid) | No |  |
+| `id` | string | No |  |
 | `name` | string | No |  |
 | `version` | string | No |  |
 | `description` | string | No |  |
@@ -590,13 +619,13 @@ Retrieves a specific agent by its unique identifier.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `id` | string (uuid) | Yes | |
+| `id` | string | Yes | |
 
 **Response:**
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `id` | string (uuid) | No |  |
+| `id` | string | No |  |
 | `name` | string | No |  |
 | `version` | string | No |  |
 | `description` | string | No |  |
@@ -618,7 +647,7 @@ Updates an existing agent with the provided fields. Only specified fields will b
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `id` | string (uuid) | Yes | |
+| `id` | string | Yes | |
 
 **Request Body:**
 
@@ -626,14 +655,18 @@ Updates an existing agent with the provided fields. Only specified fields will b
 |----------|------|----------|-------------|
 | `name` | string | No |  |
 | `version` | string | No |  |
+| `description` | string | No |  |
 | `systemPrompt` | string | No |  |
+| `provider` | string | No |  |
+| `model` | string | No |  |
+| `isActive` | boolean | No |  |
 | `metadata` | object | No |  |
 
 **Response:**
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `id` | string (uuid) | No |  |
+| `id` | string | No |  |
 | `name` | string | No |  |
 | `version` | string | No |  |
 | `description` | string | No |  |
@@ -655,7 +688,7 @@ Deletes an agent by its ID. Active agents cannot be deleted.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `id` | string (uuid) | Yes | |
+| `id` | string | Yes | |
 
 ---
 
@@ -667,13 +700,13 @@ Activates an agent, making it the active version for its name. This will deactiv
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `id` | string (uuid) | Yes | |
+| `id` | string | Yes | |
 
 **Response:**
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `id` | string (uuid) | No |  |
+| `id` | string | No |  |
 | `name` | string | No |  |
 | `version` | string | No |  |
 | `description` | string | No |  |
@@ -701,7 +734,7 @@ Finds the currently active agent with the specified name.
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `id` | string (uuid) | No |  |
+| `id` | string | No |  |
 | `name` | string | No |  |
 | `version` | string | No |  |
 | `description` | string | No |  |
@@ -725,7 +758,7 @@ Retrieves a paginated list of DAGs with optional filtering by status and creatio
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `status` | string enum: [`pending`, `active`, `paused`, `completed`, `failed`, `cancelled`] | No | |
+| `status` | string enum: [`success`, `pending`, `active`, `paused`, `completed`, `failed`, `cancelled`] | No | |
 | `createdAfter` | string (date-time) | No | |
 | `createdBefore` | string (date-time) | No | |
 | `limit` | integer | No | |

@@ -13,19 +13,22 @@ interface AgentNameParams {
 
 interface CreateAgentBody {
   name: string;
-  version: string;
+  version?: string;
+  description?: string;
   systemPrompt: string;
-  params?: {
-    provider?: LLMProvider;
-    model?: string;
-    metadata?: Record<string, unknown>;
-  };
+  provider?: LLMProvider;
+  model?: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface UpdateAgentBody {
   name?: string;
   version?: string;
+  description?: string;
   systemPrompt?: string;
+  provider?: string;
+  model?: string;
+  isActive?: boolean;
   metadata?: Record<string, unknown>;
 }
 
@@ -39,7 +42,7 @@ interface ListAgentsQuery {
 const agentResponseSchema = {
   type: "object",
   properties: {
-    id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+    id: { type: "string", example: "agent_gSjANwF7ADQotOz_abc" },
     name: { type: "string", example: "translator" },
     version: { type: "string", example: "1.0" },
     description: { type: "string", nullable: true, example: "Translates text between languages" },
@@ -73,19 +76,15 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Creates a new agent with the specified configuration. The agent name must be unique within the tenant.",
         body: {
           type: "object",
-          required: ["name", "version", "systemPrompt"],
+          required: ["name", "systemPrompt"],
           properties: {
             name: { type: "string", minLength: 1, maxLength: 100, example: "translator" },
             version: { type: "string", minLength: 1, maxLength: 50, example: "1.0" },
+            description: { type: "string", example: "A translation agent" },
             systemPrompt: { type: "string", minLength: 1, example: "You are a translator..." },
-            params: {
-              type: "object",
-              properties: {
-                provider: { type: "string", enum: ["openai", "openrouter", "ollama"], example: "openai" },
-                model: { type: "string", example: "gpt-4" },
-                metadata: { type: "object", additionalProperties: true, example: {} },
-              },
-            },
+            provider: { type: "string", enum: ["openai", "openrouter", "ollama"], example: "openai" },
+            model: { type: "string", example: "gpt-4" },
+            metadata: { type: "object", additionalProperties: true, example: {} },
           },
         },
         response: {
@@ -98,12 +97,13 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const auth = request.auth!;
-      const { name, version, systemPrompt, params } = request.body;
+      const { name, version = "1.0", description, systemPrompt, provider, model, metadata } = request.body;
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
 
       try {
+        const params = { provider, model, metadata: { ...metadata, ...(description ? { description } : {}) } };
         const agent = await client.agents.create(name, version, systemPrompt, params);
 
         return reply.status(201).send({
@@ -226,7 +226,7 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+            id: { type: "string", example: "agent_gSjANwF7ADQotOz_abc" },
           },
         },
         response: {
@@ -284,7 +284,7 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+            id: { type: "string", example: "agent_gSjANwF7ADQotOz_abc" },
           },
         },
         body: {
@@ -292,7 +292,11 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
           properties: {
             name: { type: "string", minLength: 1, maxLength: 100, example: "translator-v2" },
             version: { type: "string", minLength: 1, maxLength: 50, example: "2.0" },
+            description: { type: "string", example: "A translation agent" },
             systemPrompt: { type: "string", minLength: 1, example: "You are an improved translator..." },
+            provider: { type: "string", example: "openai" },
+            model: { type: "string", example: "gpt-4o" },
+            isActive: { type: "boolean", example: false },
             metadata: { type: "object", additionalProperties: true, example: { language: "en" } },
           },
         },
@@ -362,7 +366,7 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+            id: { type: "string", example: "agent_gSjANwF7ADQotOz_abc" },
           },
         },
         response: {
@@ -415,7 +419,7 @@ const agentsRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+            id: { type: "string", example: "agent_gSjANwF7ADQotOz_abc" },
           },
         },
         response: {

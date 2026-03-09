@@ -1,0 +1,173 @@
+{
+  "project": "desiBackend",
+  "branchName": "ralph/user-resource-access-control",
+  "description": "User-Level Resource Access Control - Restrict DAGs, executions, and sub_steps to the user who created them via a new resource_ownership table, with new routes for artifacts and executions by DAG.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create resource_ownership table",
+      "description": "As a developer, I need a table to track which user owns which resources so that access control can be enforced.",
+      "acceptanceCriteria": [
+        "Create resource_ownership table with columns: id TEXT PRIMARY KEY, userId TEXT NOT NULL, resourceType TEXT NOT NULL, resourceId TEXT NOT NULL, createdAt INTEGER NOT NULL",
+        "Add unique index on (resourceType, resourceId) to prevent duplicates",
+        "Add index on (userId, resourceType) for efficient ownership lookups",
+        "Add initializeResourceOwnershipSchema() function called during tenant DB initialization",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Record ownership when DAG is created",
+      "description": "As a system, I need to record the userId when a DAG is created so ownership can be tracked.",
+      "acceptanceCriteria": [
+        "When POST /dags creates a DAG, insert a record into resource_ownership with userId from request.auth.user.id, resourceType='dag', resourceId=dagId",
+        "Create helper function insertResourceOwnership(db, userId, resourceType, resourceId)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Record ownership when execution is created",
+      "description": "As a system, I need to record the userId when an execution is started so ownership can be tracked.",
+      "acceptanceCriteria": [
+        "When POST /dags/:id/execute creates an execution, insert ownership record with resourceType='execution'",
+        "When POST /dags/execute-definition creates an execution, insert ownership record",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create ownership check helper functions",
+      "description": "As a developer, I need reusable helper functions for ownership checks to avoid code duplication.",
+      "acceptanceCriteria": [
+        "Create checkResourceOwnership(db, userId, resourceType, resourceId) that returns boolean",
+        "Create getOwnedResourceIds(db, userId, resourceType) that returns array of resourceIds",
+        "Functions work with tenant database passed as parameter",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Filter DAG list by user ownership",
+      "description": "As a user, I want to only see DAGs I created when listing DAGs.",
+      "acceptanceCriteria": [
+        "GET /dags returns only DAGs where userId matches request.auth.user.id via join with resource_ownership",
+        "Empty list returned if user has no DAGs (not an error)",
+        "Pagination still works correctly",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Restrict single DAG access by ownership",
+      "description": "As a user, I should get 403 Forbidden when accessing a DAG I don't own.",
+      "acceptanceCriteria": [
+        "GET /dags/:id returns 403 if DAG exists but user doesn't own it",
+        "PUT /dags/:id returns 403 if user doesn't own the DAG",
+        "DELETE /dags/:id returns 403 if user doesn't own the DAG",
+        "POST /dags/:id/execute returns 403 if user doesn't own the DAG",
+        "404 still returned if DAG doesn't exist at all",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Filter execution list by user ownership",
+      "description": "As a user, I want to only see executions I created when listing executions.",
+      "acceptanceCriteria": [
+        "GET /executions returns only executions where userId matches via resource_ownership",
+        "Empty list returned if user has no executions",
+        "Pagination still works correctly",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Restrict single execution access by ownership",
+      "description": "As a user, I should get 403 Forbidden when accessing an execution I don't own.",
+      "acceptanceCriteria": [
+        "GET /executions/:id returns 403 if execution exists but user doesn't own it",
+        "GET /executions/:id/details returns 403 if user doesn't own the execution",
+        "GET /executions/:id/sub-steps returns 403 if user doesn't own the execution",
+        "DELETE /executions/:id returns 403 if user doesn't own the execution",
+        "POST /executions/:id/resume returns 403 if user doesn't own the execution",
+        "404 still returned if execution doesn't exist at all",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Create GET /artifacts/:userId route",
+      "description": "As a user, I want to retrieve all artifact names (files) created by my executions using readFile or writeFile tools.",
+      "acceptanceCriteria": [
+        "GET /artifacts/:userId returns list of artifacts with: path, toolName (readFile|writeFile), executionId, createdAt",
+        "Only returns artifacts from executions owned by the requesting user",
+        "Returns 403 if requesting user's id doesn't match :userId parameter",
+        "Extracts file paths from sub_steps where toolOrPromptName is 'readFile' or 'writeFile'",
+        "File path extracted from toolOrPromptParams JSON field",
+        "Returns empty array if no artifacts found",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Create GET /dags/executions/:executionId route",
+      "description": "As a user, I want to get all executions for a DAG given any execution ID from that DAG.",
+      "acceptanceCriteria": [
+        "GET /dags/executions/:executionId looks up the execution's dagId, then returns all executions for that DAG",
+        "Response includes DAG info joined with executions: dagId, dagTitle, dagStatus, and array of executions",
+        "Returns 403 if user doesn't own the specified execution",
+        "Returns 404 if execution doesn't exist",
+        "All returned executions must also be owned by the user (filter applied)",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Migration script for existing resources",
+      "description": "As an admin, I need existing DAGs and executions to be assigned ownership so they remain accessible after the access control feature is deployed.",
+      "acceptanceCriteria": [
+        "Create migration script that assigns all existing DAGs to user ugmurthy@gmail.com",
+        "Create migration script that assigns all existing executions to user ugmurthy@gmail.com",
+        "Script looks up userId by email from the users table",
+        "Script is idempotent (safe to run multiple times)",
+        "Script logs number of resources migrated",
+        "Script can be run via bun run migrate:ownership or similar command",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

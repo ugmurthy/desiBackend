@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
-import { Database } from "bun:sqlite";
 import { join, dirname } from "path";
-import { getTenantDbPath } from "../../db/user-schema";
+import { getTenantDbPath, initializeTenantUserSchema } from "../../db/user-schema";
 import {
   handleTelegramUpdate,
   seedDefaultProfile,
@@ -9,6 +8,7 @@ import {
 } from "../../services/telegram-bot";
 import { validateDownloadToken } from "../../services/telegram-polling";
 import { checkRateLimit } from "../../services/telegram-rate-limit";
+import { getTenantBySlug } from "../../services/admin";
 
 const telegramRoutes: FastifyPluginAsync = async (fastify) => {
   // Seed default profile on registration
@@ -48,7 +48,7 @@ const telegramRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      const tenantId = fastify.config.TELEGRAM_DEFAULT_TENANT_ID;
+      const tenantSlug = fastify.config.TELEGRAM_DEFAULT_TENANT_ID;
       const update = request.body;
 
       // US-012: Rate limit per chat to prevent abuse
@@ -61,13 +61,16 @@ const telegramRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ ok: true });
       }
 
-      let tenantDb: Database | null = null;
+      // Resolve tenant slug to actual tenant ID
+      const tenant = getTenantBySlug(tenantSlug);
+      const tenantId = tenant?.id ?? tenantSlug;
+
+      let tenantDb: import("bun:sqlite").Database | null = null;
       try {
-        const dbPath = getTenantDbPath(tenantId);
-        tenantDb = new Database(dbPath);
+        tenantDb = await initializeTenantUserSchema(tenantId);
 
         // Resolve tenant name for OTP emails
-        const tenantName = tenantId === "default" ? "desiAgent" : tenantId;
+        const tenantName = tenant?.name ?? (tenantId === "default" ? "desiAgent" : tenantId);
 
         await handleTelegramUpdate(
           tenantDb,

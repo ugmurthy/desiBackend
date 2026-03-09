@@ -34,4 +34,33 @@ export const tenantMigrations: Migration[] = [
       }
     },
   },
+  {
+    version: 2,
+    name: "backfill-telegram-resource-ownership",
+    up: (db) => {
+      // Backfill resource_ownership for DAGs and executions created via Telegram
+      // that were never recorded in the ownership table.
+      const rows = db.prepare(`
+        SELECT ti.userId, tr.dagId, tr.executionId
+        FROM telegram_requests tr
+        JOIN telegram_identities ti ON tr.telegramIdentityId = ti.id
+        WHERE ti.userId IS NOT NULL
+          AND (tr.dagId IS NOT NULL OR tr.executionId IS NOT NULL)
+      `).all() as { userId: string; dagId: string | null; executionId: string | null }[];
+
+      const insertStmt = db.prepare(`
+        INSERT OR IGNORE INTO resource_ownership (id, userId, resourceType, resourceId)
+        VALUES (?, ?, ?, ?)
+      `);
+
+      for (const row of rows) {
+        if (row.dagId) {
+          insertStmt.run(crypto.randomUUID(), row.userId, "dag", row.dagId);
+        }
+        if (row.executionId) {
+          insertStmt.run(crypto.randomUUID(), row.userId, "execution", row.executionId);
+        }
+      }
+    },
+  },
 ];

@@ -24,6 +24,7 @@ The design intentionally uses a thin Telegram Gateway layer that maps chat inter
 - [ ] `/start` initializes a conversation state for an unverified user.
 - [ ] Bot collects user email and triggers one-time verification flow.
 - [ ] Verification method uses 6-digit OTP entered in Telegram.
+- [ ] OTP expires in 10 minutes and allows a maximum of 3 failed attempts per verification session.
 - [ ] Unverified users are blocked from request execution and receive a clear guidance message.
 - [ ] Verified mapping between Telegram identity and backend user is persisted.
 
@@ -81,6 +82,7 @@ The design intentionally uses a thin Telegram Gateway layer that maps chat inter
 - [ ] `/use <profile>` changes the active profile for the user.
 - [ ] Active profile is persisted and used for subsequent requests.
 - [ ] Internal routing resolves profile to an allowlisted target handler.
+- [ ] Profile switching is blocked while a request lifecycle is active (running execution or pending clarification).
 - [ ] With one initial profile (`default`), behavior remains identical to V1.
 
 ### US-008: Secure and Reliable Delivery
@@ -111,6 +113,9 @@ The design intentionally uses a thin Telegram Gateway layer that maps chat inter
 - FR-15: The system must route requests through an internal profile router that resolves to allowlisted target handlers.
 - FR-16: The system must include idempotency controls for outbound Telegram message and artifact delivery.
 - FR-17: The system must log audit events for onboarding, execution dispatch, clarification handling, completion, failure, and artifact delivery.
+- FR-18: OTP verification policy must enforce a 10-minute OTP TTL and a maximum of 3 failed attempts before reset/restart is required.
+- FR-19: Profile switching must be rejected while the user has an active request lifecycle (running execution or pending clarification).
+- FR-20: Gateway data tables (`telegram_identities`, `telegram_sessions`, `telegram_requests`, `telegram_dispatch_log`, `profile_registry`) must be created and versioned through backend migrations/bootstrapping, consistent with how backend-only system tables (for example tenants and related metadata tables) are managed.
 
 ## Non-Goals (Out of Scope)
 
@@ -141,6 +146,7 @@ The design intentionally uses a thin Telegram Gateway layer that maps chat inter
   - `telegram_requests`
   - `telegram_dispatch_log`
   - `profile_registry`
+- Gateway tables must be treated as first-class backend schema objects and created via the same migration/bootstrap lifecycle used for existing backend-managed tables.
 - Dev deployment should use long polling; production should use webhook mode with secret token validation and async worker handling.
 - Signed-link fallback should use short expiration and access controls.
 
@@ -152,7 +158,7 @@ The design intentionally uses a thin Telegram Gateway layer that maps chat inter
 - Duplicate outbound artifact/message rate under 0.5% with idempotency enabled.
 - 90th percentile time from request submission to acknowledgment under 3 seconds.
 
-## Open Questions
+## Resolved Policy Decisions
 
-- Should OTP expiration and retry policy be standardized globally (for example: 10-minute validity, max 5 attempts), or tenant-configurable later?
-- Should profile switching be allowed while a clarification is pending, or blocked until request lifecycle completion?
+- OTP expires in 10 minutes with a maximum of 3 failed attempts.
+- Profile switching is blocked until the active request lifecycle is complete.
