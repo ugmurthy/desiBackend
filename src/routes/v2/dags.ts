@@ -187,6 +187,13 @@ function mapDagToListItem(dag: Record<string, unknown>) {
   };
 }
 
+interface ExtendedPlanningResultFields {
+  result?: unknown;
+  usage?: unknown;
+  generationStats?: unknown;
+  attempts?: unknown;
+}
+
 // ============ Routes ============
 
 interface ExecutionIdParams {
@@ -258,14 +265,15 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           scheduleActive,
           timezone,
         });
+        const detailedResult = result as ExtendedPlanningResultFields;
         //console.log(JSON.stringify(request,null,2), "Backend: Created DAG");
         if (result.status === "clarification_required") {
           return reply.status(202).send({
             status: "clarification_required",
             clarificationQuery: result.clarificationQuery,
-            result: result.result,
-            usage: result.usage,
-            generationStats: result.generationStats,
+            result: detailedResult.result,
+            usage: detailedResult.usage,
+            generationStats: detailedResult.generationStats,
           });
         }
 
@@ -277,16 +285,16 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
 
-        const dagResult = result.result as { id?: string };
+        const dagResult = detailedResult.result as { id?: string } | undefined;
         if (dagResult?.id) {
           insertResourceOwnership(auth.tenantDb, auth.user.id, "dag", dagResult.id);
         }
         return reply.status(201).send({
           status: "success",
-          result: result.result,
-          usage: result.usage,
-          generationStats: result.generationStats,
-          attempts: result.attempts,
+          result: detailedResult.result,
+          usage: detailedResult.usage,
+          generationStats: detailedResult.generationStats,
+          attempts: detailedResult.attempts,
         });
       } catch (error) {
         if (error instanceof Error && error.name === "NotFoundError") {
@@ -456,14 +464,15 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const result = await client.dags.resumeFromClarification(id, userResponse);
+        const detailedResult = result as ExtendedPlanningResultFields;
 
         if (result.status === "clarification_required") {
           return reply.status(202).send({
             status: "clarification_required",
             clarificationQuery: result.clarificationQuery,
-            result: result.result,
-            usage: result.usage,
-            generationStats: result.generationStats,
+            result: detailedResult.result,
+            usage: detailedResult.usage,
+            generationStats: detailedResult.generationStats,
           });
         }
 
@@ -476,10 +485,10 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.status(201).send({
           status: "success",
-          result: result.result,
-          usage: result.usage,
-          generationStats: result.generationStats,
-          attempts: result.attempts,
+          result: detailedResult.result,
+          usage: detailedResult.usage,
+          generationStats: detailedResult.generationStats,
+          attempts: detailedResult.attempts,
         });
       } catch (error) {
         if (error instanceof Error && error.name === "NotFoundError") {

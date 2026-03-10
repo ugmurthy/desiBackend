@@ -39,13 +39,13 @@ function transformOperations(operations: OperationMap): Record<string, Transform
   for (const key of Object.keys(operations)) {
     const parts = splitCamelCase(key);
     
-    if (parts.length < 5) {
+    while (parts.length < 5) {
       //console.warn(`Key "${key}" does not have enough parts after splitting (expected at least 5, got ${parts.length}): ${parts.join(', ')}`);
       parts.push("--")
     }
 
-    const service = parts[3].toLowerCase();
-    const method = parts[0] + parts.slice(4).join('');
+    const service = (parts[3] ?? "--").toLowerCase();
+    const method = (parts[0] ?? "") + parts.slice(4).join('');
 
     result[key] = { service, method };
   }
