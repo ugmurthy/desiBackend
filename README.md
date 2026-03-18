@@ -28,6 +28,7 @@ PORT=3000
 HOST=0.0.0.0
 NODE_ENV=development
 LOG_LEVEL=info            # debug | info | warn | error
+AUTO_START_SCHEDULER=true # set false to disable DAG scheduler startup
 
 # LLM Provider
 LLM_PROVIDER=openai       # openai | openrouter | ollama

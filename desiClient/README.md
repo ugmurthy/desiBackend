@@ -26,23 +26,23 @@ const response = await client._default.healthCheck(/* params */);
 
 ### _default
 
-- `_default.healthCheck()`
-- `_default.healthCheckReady()`
+- `_default.healthCheck(options?)`
+- `_default.healthCheckReady(options?)`
 - `_default.artifacts(options?)`
-- `_default.postApiV2TelegramWebhook()`
+- `_default.postApiV2TelegramWebhook(options?)`
 - `_default.getApiV2TelegramDownloadByToken(token)`
 
 ### auth
 
-- `auth.getMe()`
-- `auth.getApiKeys()`
+- `auth.getMe(options?)`
+- `auth.getApiKeys(options?)`
 - `auth.createApiKeys(body)`
 - `auth.deleteApiKeysById(id)`
 - `auth.register(tenantSlug, body)`
 - `auth.verifyEmailByToken(token)`
 - `auth.resendVerification(tenantSlug, body)`
 - `auth.login(tenantSlug, body)`
-- `auth.logout()`
+- `auth.logout(options?)`
 - `auth.forgotPassword(tenantSlug, body)`
 - `auth.resetPassword(body)`
 - `auth.invite(body)`
@@ -50,7 +50,7 @@ const response = await client._default.healthCheck(/* params */);
 
 ### users
 
-- `users.list()`
+- `users.list(options?)`
 - `users.getById(id)`
 - `users.updateById(id, body)`
 - `users.deleteById(id)`
@@ -72,7 +72,7 @@ const response = await client._default.healthCheck(/* params */);
 - `dags.create(body)`
 - `dags.createExecute(body)`
 - `dags.resumeClarification(id, body)`
-- `dags.getScheduled()`
+- `dags.getScheduled(options?)`
 - `dags.getById(id)`
 - `dags.updateById(id, body)`
 - `dags.deleteById(id)`
@@ -92,7 +92,7 @@ const response = await client._default.healthCheck(/* params */);
 
 ### tools
 
-- `tools.list()`
+- `tools.list(options?)`
 
 ### costs
 
@@ -103,7 +103,7 @@ const response = await client._default.healthCheck(/* params */);
 
 ### billing
 
-- `billing.getUsage()`
+- `billing.getUsage(options?)`
 - `billing.getUsageHistory(options?)`
 - `billing.getInvoices(options?)`
 - `billing.getInvoicesById(id)`
@@ -121,7 +121,7 @@ const response = await client._default.healthCheck(/* params */);
 
 ### _default
 
-#### `_default.healthCheck()`
+#### `_default.healthCheck(options?)`
 
 Returns the current health status, version, and uptime of the service
 
@@ -133,9 +133,11 @@ Returns the current health status, version, and uptime of the service
 | `version` | string | No |  |
 | `uptime` | number | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
+
 ---
 
-#### `_default.healthCheckReady()`
+#### `_default.healthCheckReady(options?)`
 
 Checks if the service is ready to accept requests by verifying database connectivity
 
@@ -145,6 +147,8 @@ Checks if the service is ready to accept requests by verifying database connecti
 |----------|------|----------|-------------|
 | `status` | string | No |  |
 | `checks` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
 
 ---
 
@@ -165,9 +169,11 @@ Retrieve all artifact names (files) created by the authenticated user's executio
 | `artifacts` | array of object | No |  |
 | `artifact` | object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
-#### `_default.postApiV2TelegramWebhook()`
+#### `_default.postApiV2TelegramWebhook(options?)`
 
 Receives incoming updates from the Telegram Bot API
 
@@ -176,6 +182,8 @@ Receives incoming updates from the Telegram Bot API
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `ok` | boolean | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
 
 ---
 
@@ -189,11 +197,13 @@ Serves a file artifact using a time-limited signed download token
 |-----------|------|----------|-------------|
 | `token` | string | Yes | |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 ### auth
 
-#### `auth.getMe()`
+#### `auth.getMe(options?)`
 
 Returns the authenticated user's profile and tenant information
 
@@ -207,9 +217,11 @@ Returns the authenticated user's profile and tenant information
 | `role` | string | No |  |
 | `tenant` | object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
+
 ---
 
-#### `auth.getApiKeys()`
+#### `auth.getApiKeys(options?)`
 
 Returns all API keys for the authenticated user
 
@@ -218,6 +230,8 @@ Returns all API keys for the authenticated user
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `apiKeys` | array of object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
 
 ---
 
@@ -245,6 +259,8 @@ Creates a new API key for the authenticated user
 | `expiresAt` | string (date-time) | No |  |
 | `createdAt` | string (date-time) | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `auth.deleteApiKeysById(id)`
@@ -256,6 +272,8 @@ Revokes an existing API key by ID
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -283,6 +301,8 @@ Register a new user with email/password for an existing tenant. Sends verificati
 |----------|------|----------|-------------|
 | `message` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `auth.verifyEmailByToken(token)`
@@ -300,6 +320,8 @@ Verify user email using the token from verification email. Token expires after 2
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `message` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -324,6 +346,8 @@ Resends the email verification link. Always returns 200 to prevent email enumera
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `message` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -352,11 +376,15 @@ Authenticate with email and password. Returns session token on success.
 | `expiresAt` | number | No |  |
 | `user` | object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
-#### `auth.logout()`
+#### `auth.logout(options?)`
 
 Invalidates the current session token.
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
 
 ---
 
@@ -382,6 +410,8 @@ Sends a password reset email if the email exists. Always returns 200 to prevent 
 |----------|------|----------|-------------|
 | `message` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `auth.resetPassword(body)`
@@ -400,6 +430,8 @@ Reset password using the token received via email. Invalidates all existing sess
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `message` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -421,6 +453,8 @@ Invite a new user by email. Creates user with no password and sends invite email
 |----------|------|----------|-------------|
 | `message` | string | No |  |
 | `userId` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -448,11 +482,13 @@ Accept an invitation by setting a password. Creates a session on success.
 | `expiresAt` | number | No |  |
 | `user` | object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 ### users
 
-#### `users.list()`
+#### `users.list(options?)`
 
 Retrieves a list of all users in the tenant. Requires admin role.
 
@@ -461,6 +497,8 @@ Retrieves a list of all users in the tenant. Requires admin role.
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `users` | array of object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
 
 ---
 
@@ -484,6 +522,8 @@ Retrieves a specific user by their unique identifier.
 | `role` | string enum: [`admin`, `member`, `viewer`] | No |  |
 | `createdAt` | string | No |  |
 | `updatedAt` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -514,6 +554,8 @@ Updates the role of a specific user. Requires admin role.
 | `createdAt` | string | No |  |
 | `updatedAt` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `users.deleteById(id)`
@@ -525,6 +567,8 @@ Deletes a specific user from the tenant. Requires admin role. Cannot delete your
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -551,6 +595,8 @@ Creates a new user invitation in the tenant. Requires admin role.
 | `createdAt` | string | No |  |
 | `updatedAt` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 ### agents
@@ -574,6 +620,8 @@ Retrieves a paginated list of agents with optional filtering by status and name.
 |----------|------|----------|-------------|
 | `agents` | array of object | No |  |
 | `pagination` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -609,6 +657,8 @@ Creates a new agent with the specified configuration. The agent name must be uni
 | `createdAt` | string (date-time) | No |  |
 | `updatedAt` | string (date-time) | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `agents.getById(id)`
@@ -636,6 +686,8 @@ Retrieves a specific agent by its unique identifier.
 | `metadata` | object | No |  |
 | `createdAt` | string (date-time) | No |  |
 | `updatedAt` | string (date-time) | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -678,6 +730,8 @@ Updates an existing agent with the provided fields. Only specified fields will b
 | `createdAt` | string (date-time) | No |  |
 | `updatedAt` | string (date-time) | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `agents.deleteById(id)`
@@ -689,6 +743,8 @@ Deletes an agent by its ID. Active agents cannot be deleted.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -718,6 +774,8 @@ Activates an agent, making it the active version for its name. This will deactiv
 | `createdAt` | string (date-time) | No |  |
 | `updatedAt` | string (date-time) | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `agents.resolveByName(name)`
@@ -746,6 +804,8 @@ Finds the currently active agent with the specified name.
 | `createdAt` | string (date-time) | No |  |
 | `updatedAt` | string (date-time) | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 ### dags
@@ -770,6 +830,8 @@ Retrieves a paginated list of DAGs with optional filtering by status and creatio
 |----------|------|----------|-------------|
 | `dags` | array of object | No |  |
 | `pagination` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -803,6 +865,8 @@ Creates a new DAG (Directed Acyclic Graph) from a goal text using an AI agent. T
 | `generationStats` | object | No |  |
 | `attempts` | integer | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `dags.createExecute(body)`
@@ -831,6 +895,8 @@ Creates a new DAG from a goal text and immediately starts execution. Returns the
 | `status` | string | No |  |
 | `dagId` | string | No |  |
 | `executionId` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -861,9 +927,11 @@ Resumes DAG creation for a DAG that returned a clarification_required status. Pr
 | `generationStats` | object | No |  |
 | `attempts` | integer | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
-#### `dags.getScheduled()`
+#### `dags.getScheduled(options?)`
 
 Retrieves all DAGs that have a cron schedule configured, along with their scheduling details.
 
@@ -872,6 +940,8 @@ Retrieves all DAGs that have a cron schedule configured, along with their schedu
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `dags` | array of object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
 
 ---
 
@@ -895,6 +965,8 @@ Retrieves a specific DAG by its unique identifier, including all nodes, edges, a
 | `createdAt` | string (date-time) | No |  |
 | `updatedAt` | string (date-time) | No |  |
 | `metadata` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -929,6 +1001,8 @@ Updates a DAG's properties such as status, schedule, or title. Only the provided
 | `updatedAt` | string (date-time) | No |  |
 | `metadata` | object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `dags.deleteById(id)`
@@ -940,6 +1014,8 @@ Safely deletes a DAG by its ID. This operation is idempotent.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -967,6 +1043,8 @@ Triggers the execution of an existing DAG. The execution runs asynchronously and
 | `id` | string | No |  |
 | `status` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `dags.createExperiments(body)`
@@ -992,6 +1070,8 @@ Runs multiple DAG generation experiments with different model and temperature co
 | `totalRuns` | integer | No |  |
 | `status` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `dags.executionbyDagId(id)`
@@ -1012,6 +1092,8 @@ Given a DAG ID, returns the DAG info and all executions for that DAG.
 | `dagTitle` | string | No |  |
 | `dagStatus` | string | No |  |
 | `executions` | array of object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1036,6 +1118,8 @@ Retrieve a paginated list of executions with optional filters for status and DAG
 |----------|------|----------|-------------|
 | `executions` | array of object | No |  |
 | `pagination` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1075,6 +1159,8 @@ Retrieve detailed information about a specific execution by its unique identifie
 | `totalCostUsd` | number | No |  |
 | `updatedAt` | string (date-time) | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `executions.deleteById(id)`
@@ -1086,6 +1172,8 @@ Delete a specific execution by its unique identifier.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1126,6 +1214,8 @@ Retrieve detailed information about a specific execution including all its sub-s
 | `updatedAt` | string (date-time) | No |  |
 | `subSteps` | array of object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `executions.getSubSteps(id)`
@@ -1145,6 +1235,8 @@ Retrieve only the sub-steps for a specific execution.
 | `executionId` | string | No |  |
 | `subSteps` | array of object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `executions.getEvents(id)`
@@ -1158,6 +1250,8 @@ Stream real-time execution events via Server-Sent Events (SSE). The stream will 
 | `id` | string | Yes | |
 
 **Response:**
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1178,11 +1272,13 @@ Resume a suspended or waiting execution. Only executions in 'suspended' or 'wait
 | `id` | string | No |  |
 | `status` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 ### tools
 
-#### `tools.list()`
+#### `tools.list(options?)`
 
 Retrieves a list of all available tools for the authenticated tenant
 
@@ -1191,6 +1287,8 @@ Retrieves a list of all available tools for the authenticated tenant
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `tools` | array of object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
 
 ---
 
@@ -1220,6 +1318,8 @@ Retrieves detailed cost and usage information for a specific execution, includin
 | `completedAt` | string (date-time) | No |  |
 | `durationMs` | number | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `costs.getDagsById(id)`
@@ -1244,6 +1344,8 @@ Retrieves aggregated cost and usage information for a DAG, including totals acro
 | `executions` | array of object | No |  |
 | `createdAt` | string (date-time) | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `costs.getSummary(options?)`
@@ -1266,6 +1368,8 @@ Retrieves an aggregated cost summary for the tenant, including usage breakdown b
 | `usage` | object | No |  |
 | `costs` | object | No |  |
 | `breakdown` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1291,11 +1395,13 @@ Retrieves an aggregated cost summary for the authenticated user, scoped to execu
 | `costs` | object | No |  |
 | `breakdown` | object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 ### billing
 
-#### `billing.getUsage()`
+#### `billing.getUsage(options?)`
 
 Retrieves usage statistics and costs for the current billing period including tokens, compute time, executions, and DAGs.
 
@@ -1308,6 +1414,8 @@ Retrieves usage statistics and costs for the current billing period including to
 | `usage` | object | No |  |
 | `costs` | object | No |  |
 | `quotas` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
 
 ---
 
@@ -1334,6 +1442,8 @@ Retrieves historical usage records with optional date filtering and pagination s
 | `summary` | object | No |  |
 | `pagination` | object | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `billing.getInvoices(options?)`
@@ -1355,6 +1465,8 @@ Retrieves a paginated list of invoices for the authenticated tenant with optiona
 | `tenantId` | string | No |  |
 | `invoices` | array of object | No |  |
 | `pagination` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1381,6 +1493,8 @@ Retrieves detailed information for a specific invoice including line items and t
 | `status` | string enum: [`draft`, `pending`, `paid`, `cancelled`] | No |  |
 | `createdAt` | string (date-time) | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 ### admin
@@ -1406,6 +1520,8 @@ Retrieves a paginated list of all tenants with optional filtering by status and 
 | `total` | number | No |  |
 | `limit` | number | No |  |
 | `offset` | number | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1434,6 +1550,8 @@ Creates a new tenant with the specified name, slug, and optional plan. Requires 
 | `createdAt` | string | No |  |
 | `updatedAt` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `admin.getTenantsById(id)`
@@ -1458,6 +1576,8 @@ Retrieves a single tenant by its unique identifier. Requires admin scope.
 | `quotas` | object | No |  |
 | `createdAt` | string | No |  |
 | `updatedAt` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1493,6 +1613,8 @@ Updates an existing tenant's properties such as name, status, plan, or quotas. R
 | `createdAt` | string | No |  |
 | `updatedAt` | string | No |  |
 
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
 ---
 
 #### `admin.deleteTenantsById(id, options?)`
@@ -1523,6 +1645,8 @@ Deletes or suspends a tenant. Use action=delete for permanent deletion or action
 | `quotas` | object | No |  |
 | `createdAt` | string | No |  |
 | `updatedAt` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 

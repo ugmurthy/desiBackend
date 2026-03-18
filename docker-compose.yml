@@ -1,0 +1,11 @@
+ME
+services:
+  desibackend:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - $/.desiAgent:/data/.desiAgent
+    env_file:
+      - .env
+    restart: unless-stopped

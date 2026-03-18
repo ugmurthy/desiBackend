@@ -17,7 +17,7 @@ export interface BootstrapSummary {
   tenantCreated: boolean;
 }
 
-const DESI_AGENT_DIR = join(homedir(), ".desiAgent");
+const DESI_AGENT_DIR = join(process.env.DESI_DATA_DIR || homedir(), ".desiAgent");
 
 /**
  * Ensure the ~/.desiAgent/ directory structure exists

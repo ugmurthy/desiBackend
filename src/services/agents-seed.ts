@@ -5,7 +5,7 @@ import { Database } from "bun:sqlite";
 import { getTenantDbPath } from "../db/user-schema";
 import type { Agent } from "../db/agents-schema";
 
-const SEED_DIR = join(homedir(), ".desiAgent", "seed");
+const SEED_DIR = join(process.env.DESI_DATA_DIR || homedir(), ".desiAgent", "seed");
 const AGENTS_JSON_PATH = join(SEED_DIR, "agents.json");
 
 export interface SeedAgentsResult {

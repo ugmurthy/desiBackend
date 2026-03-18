@@ -6,7 +6,7 @@ import { getAdminDatabase, type AdminApiKey, type AdminApiKeyScope } from "../db
 
 const BCRYPT_COST_FACTOR = 12;
 const ADMIN_KEY_PREFIX = "desi_sk_admin_";
-const ADMIN_KEY_FILE = join(homedir(), ".desiAgent", "admin-key.txt");
+const ADMIN_KEY_FILE = join(process.env.DESI_DATA_DIR || homedir(), ".desiAgent", "admin-key.txt");
 
 export interface CreateAdminApiKeyResult {
   apiKey: AdminApiKey;

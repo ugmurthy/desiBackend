@@ -19,6 +19,7 @@ import {
 import {
   resolveProfileForIdentity,
   resolveHandler,
+  type TelegramAttachment,
 } from "./telegram-profile-router";
 import { startExecutionPolling } from "./telegram-polling";
 import {
@@ -42,12 +43,31 @@ export interface TelegramUpdate {
   message?: TelegramMessage;
 }
 
+export interface TelegramDocument {
+  file_id: string;
+  file_unique_id: string;
+  file_name?: string;
+  mime_type?: string;
+  file_size?: number;
+}
+
+export interface TelegramPhotoSize {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
+}
+
 export interface TelegramMessage {
   message_id: number;
   from?: TelegramUser;
   chat: TelegramChat;
   date: number;
   text?: string;
+  caption?: string;
+  document?: TelegramDocument;
+  photo?: TelegramPhotoSize[];
 }
 
 export interface TelegramUser {
@@ -85,6 +105,45 @@ export async function sendTelegramMessage(
     const body = await res.text();
     throw new Error(`Telegram API error ${res.status}: ${body}`);
   }
+}
+
+export async function downloadTelegramFile(
+  botToken: string,
+  fileId: string,
+  destDir: string
+): Promise<{ localPath: string; fileName: string }> {
+  // Get file path from Telegram
+  const fileInfoUrl = `https://api.telegram.org/bot${botToken}/getFile`;
+  const infoRes = await fetch(fileInfoUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_id: fileId }),
+  });
+  if (!infoRes.ok) {
+    throw new Error(`Failed to get file info: ${infoRes.status}`);
+  }
+  const fileInfo = (await infoRes.json()) as {
+    ok: boolean;
+    result: { file_id: string; file_path: string; file_size?: number };
+  };
+  if (!fileInfo.ok || !fileInfo.result.file_path) {
+    throw new Error("Telegram getFile returned no file_path");
+  }
+
+  // Download the file
+  const downloadUrl = `https://api.telegram.org/file/bot${botToken}/${fileInfo.result.file_path}`;
+  const downloadRes = await fetch(downloadUrl);
+  if (!downloadRes.ok) {
+    throw new Error(`Failed to download file: ${downloadRes.status}`);
+  }
+
+  const fileName = fileInfo.result.file_path.split("/").pop() ?? "attachment";
+  const { mkdirSync } = await import("fs");
+  mkdirSync(destDir, { recursive: true });
+  const localPath = `${destDir}/${fileName}`;
+  await Bun.write(localPath, downloadRes);
+
+  return { localPath, fileName };
 }
 
 // --- Email validation ---
@@ -172,6 +231,29 @@ export function seedDefaultProfile(): void {
     );
 }
 
+export function seedCreateOnlyProfile(): void {
+  const adminDb = getAdminDatabase();
+  const existing = adminDb
+    .prepare(`SELECT id FROM profile_registry WHERE name = 'create-only'`)
+    .get();
+  if (existing) return;
+
+  const id = crypto.randomUUID();
+  const now = Math.floor(Date.now() / 1000);
+  adminDb
+    .prepare(
+      `INSERT INTO profile_registry (id, name, description, handler, enabled, createdAt, updatedAt) VALUES (?, ?, ?, ?, 1, ?, ?)`
+    )
+    .run(
+      id,
+      "create-only",
+      "Creates a DAG without executing — for review-before-run workflows",
+      "create-only",
+      now,
+      now
+    );
+}
+
 // --- Commands that require verification ---
 
 const VERIFIED_COMMANDS = new Set(["/profiles", "/use"]);
@@ -186,12 +268,14 @@ export async function handleTelegramUpdate(
   update: TelegramUpdate
 ): Promise<void> {
   const message = update.message;
-  if (!message || !message.from || !message.text) return;
+  if (!message || !message.from) return;
+  if (!message.text && !message.document && !message.photo) return;
 
   const telegramUserId = String(message.from.id);
   const chatId = String(message.chat.id);
-  const text = message.text;
+  const text = message.text ?? message.caption ?? "";
   const { command, args } = parseCommand(text);
+  const attachment = message.document ?? (message.photo?.length ? message.photo[message.photo.length - 1] : undefined);
 
   // --- /start command ---
   if (command === "/start") {
@@ -300,7 +384,15 @@ export async function handleTelegramUpdate(
     }
 
     // US-005 + US-007: Submit new request via profile router
-    await handleNewRequest(db, botToken, chatId, identity, text);
+    const attachmentInfo: TelegramAttachment | undefined = attachment
+      ? {
+          fileId: attachment.file_id,
+          fileName: "file_name" in attachment ? attachment.file_name : undefined,
+          mimeType: "mime_type" in attachment ? attachment.mime_type : undefined,
+          fileSize: attachment.file_size,
+        }
+      : undefined;
+    await handleNewRequest(db, botToken, chatId, identity, text, attachmentInfo);
     return;
   }
 
@@ -527,7 +619,8 @@ async function handleNewRequest(
   botToken: string,
   chatId: string,
   identity: TelegramIdentity,
-  text: string
+  text: string,
+  attachment?: TelegramAttachment
 ): Promise<void> {
   // US-012: Rate limit request submissions
   const rl = checkRateLimit("request_submission", identity.telegramUserId);
@@ -581,6 +674,7 @@ async function handleNewRequest(
       tenantId: identity.tenantId,
       userId: identity.userId ?? "",
       goalText: text,
+      attachment,
     });
 
     if (result.status === "clarification_required") {

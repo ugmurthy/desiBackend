@@ -14,41 +14,56 @@ class AuthService {
   ) {}
 
   /** Get current user info */
-  async getMe(): Promise<Record<string, unknown>> {
+  async getMe(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/me';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** List API keys */
-  async getApiKeys(): Promise<Record<string, unknown>> {
+  async getApiKeys(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/api-keys';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Create API key */
-  async createApiKeys(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async createApiKeys(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/api-keys';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Revoke API key */
-  async deleteApiKeysById(params: { id: string }): Promise<void> {
+  async deleteApiKeysById(params: { id: string; signal?: AbortSignal }): Promise<void> {
     let url = '/api/v2/auth/api-keys/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.delete<void>(url, config);
     return response.data;
@@ -58,22 +73,32 @@ class AuthService {
   async register(params: {
     tenantSlug: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/register/{tenantSlug}';
     url = url.replace('{' + 'tenantSlug' + '}', encodeURIComponent(String(params.tenantSlug)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Verify email */
-  async verifyEmailByToken(params: { token: string }): Promise<Record<string, unknown>> {
+  async verifyEmailByToken(params: {
+    token: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/verify-email/{token}';
     url = url.replace('{' + 'token' + '}', encodeURIComponent(String(params.token)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -83,11 +108,15 @@ class AuthService {
   async resendVerification(params: {
     tenantSlug: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/resend-verification/{tenantSlug}';
     url = url.replace('{' + 'tenantSlug' + '}', encodeURIComponent(String(params.tenantSlug)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
@@ -97,21 +126,28 @@ class AuthService {
   async login(params: {
     tenantSlug: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/login/{tenantSlug}';
     url = url.replace('{' + 'tenantSlug' + '}', encodeURIComponent(String(params.tenantSlug)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Logout */
-  async logout(): Promise<void> {
+  async logout(options?: { signal?: AbortSignal }): Promise<void> {
     let url = '/api/v2/auth/logout';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.post<void>(url, config);
     return response.data;
@@ -121,31 +157,47 @@ class AuthService {
   async forgotPassword(params: {
     tenantSlug: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/forgot-password/{tenantSlug}';
     url = url.replace('{' + 'tenantSlug' + '}', encodeURIComponent(String(params.tenantSlug)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Reset password */
-  async resetPassword(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async resetPassword(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/reset-password';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Invite user (admin only) */
-  async invite(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async invite(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/invite';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
@@ -155,11 +207,15 @@ class AuthService {
   async acceptInvite(params: {
     token: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/auth/accept-invite/{token}';
     url = url.replace('{' + 'token' + '}', encodeURIComponent(String(params.token)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
@@ -174,21 +230,27 @@ class UsersService {
   ) {}
 
   /** List all users */
-  async list(): Promise<Record<string, unknown>> {
+  async list(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/users';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Get user by ID */
-  async getById(params: { id: string }): Promise<Record<string, unknown>> {
+  async getById(params: { id: string; signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/users/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -198,32 +260,45 @@ class UsersService {
   async updateById(params: {
     id: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/users/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.patch<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Delete user */
-  async deleteById(params: { id: string }): Promise<void> {
+  async deleteById(params: { id: string; signal?: AbortSignal }): Promise<void> {
     let url = '/api/v2/users/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.delete<void>(url, config);
     return response.data;
   }
 
   /** Invite new user */
-  async createInvite(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async createInvite(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/users/invite';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
@@ -243,6 +318,7 @@ class AgentsService {
     name?: string;
     limit?: number;
     offset?: number;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/agents';
 
@@ -254,27 +330,39 @@ class AgentsService {
         offset: params.offset,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Create a new agent */
-  async create(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async create(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/agents';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Get agent by ID */
-  async getById(params: { id: string }): Promise<Record<string, unknown>> {
+  async getById(params: { id: string; signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/agents/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -284,44 +372,60 @@ class AgentsService {
   async updateById(params: {
     id: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/agents/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.patch<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Delete agent */
-  async deleteById(params: { id: string }): Promise<void> {
+  async deleteById(params: { id: string; signal?: AbortSignal }): Promise<void> {
     let url = '/api/v2/agents/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.delete<void>(url, config);
     return response.data;
   }
 
   /** Activate agent */
-  async activate(params: { id: string }): Promise<Record<string, unknown>> {
+  async activate(params: { id: string; signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/agents/{id}/activate';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Resolve agent by name */
-  async resolveByName(params: { name: string }): Promise<Record<string, unknown>> {
+  async resolveByName(params: {
+    name: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/agents/resolve/{name}';
     url = url.replace('{' + 'name' + '}', encodeURIComponent(String(params.name)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -342,6 +446,7 @@ class DagsService {
     createdBefore?: string;
     limit?: number;
     offset?: number;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags';
 
@@ -354,26 +459,41 @@ class DagsService {
         offset: params.offset,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Create DAG from goal */
-  async create(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async create(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Create DAG and execute in one step */
-  async createExecute(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async createExecute(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/create-execute';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
@@ -383,32 +503,42 @@ class DagsService {
   async resumeClarification(params: {
     id: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/{id}/resume-clarification';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** List scheduled DAGs */
-  async getScheduled(): Promise<Record<string, unknown>> {
+  async getScheduled(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/scheduled';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Get DAG by ID */
-  async getById(params: { id: string }): Promise<Record<string, unknown>> {
+  async getById(params: { id: string; signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -418,22 +548,29 @@ class DagsService {
   async updateById(params: {
     id: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.patch<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Delete DAG */
-  async deleteById(params: { id: string }): Promise<void> {
+  async deleteById(params: { id: string; signal?: AbortSignal }): Promise<void> {
     let url = '/api/v2/dags/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.delete<void>(url, config);
     return response.data;
@@ -443,11 +580,15 @@ class DagsService {
   async execute(params: {
     id: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/{id}/execute';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
@@ -456,21 +597,31 @@ class DagsService {
   /** Run experiments */
   async createExperiments(params: {
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/experiments';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Get DAG executions by DAG ID */
-  async executionbyDagId(params: { id: string }): Promise<Record<string, unknown>> {
+  async executionbyDagId(params: {
+    id: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/executions/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -490,6 +641,7 @@ class ExecutionsService {
     dagId?: string;
     limit?: number;
     offset?: number;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/executions';
 
@@ -501,72 +653,99 @@ class ExecutionsService {
         offset: params.offset,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Get execution by ID */
-  async getById(params: { id: string }): Promise<Record<string, unknown>> {
+  async getById(params: { id: string; signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/executions/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Delete execution */
-  async deleteById(params: { id: string }): Promise<void> {
+  async deleteById(params: { id: string; signal?: AbortSignal }): Promise<void> {
     let url = '/api/v2/executions/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.delete<void>(url, config);
     return response.data;
   }
 
   /** Get execution with sub-steps */
-  async getByIdDetails(params: { id: string }): Promise<Record<string, unknown>> {
+  async getByIdDetails(params: {
+    id: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/executions/{id}/details';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Get execution sub-steps */
-  async getSubSteps(params: { id: string }): Promise<Record<string, unknown>> {
+  async getSubSteps(params: {
+    id: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/executions/{id}/sub-steps';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Stream execution events */
-  async getEvents(params: { id: string }): Promise<string> {
+  async getEvents(params: { id: string; signal?: AbortSignal }): Promise<string> {
     let url = '/api/v2/executions/{id}/events';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<string>(url, config);
     return response.data;
   }
 
   /** Resume suspended execution */
-  async resume(params: { id: string }): Promise<Record<string, unknown>> {
+  async resume(params: { id: string; signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/executions/{id}/resume';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, config);
     return response.data;
@@ -581,10 +760,13 @@ class ToolsService {
   ) {}
 
   /** List available tools */
-  async list(): Promise<Record<string, unknown>> {
+  async list(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/tools';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -599,22 +781,34 @@ class CostsService {
   ) {}
 
   /** Get execution cost details */
-  async getExecutionsById(params: { id: string }): Promise<Record<string, unknown>> {
+  async getExecutionsById(params: {
+    id: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/costs/executions/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Get DAG cost details */
-  async getDagsById(params: { id: string }): Promise<Record<string, unknown>> {
+  async getDagsById(params: {
+    id: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/costs/dags/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -624,6 +818,7 @@ class CostsService {
   async getSummary(params: {
     startDate?: string;
     endDate?: string;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/costs/summary';
 
@@ -633,6 +828,9 @@ class CostsService {
         endDate: params.endDate,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -642,6 +840,7 @@ class CostsService {
   async getMySummary(params: {
     startDate?: string;
     endDate?: string;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/costs/summary/me';
 
@@ -651,6 +850,9 @@ class CostsService {
         endDate: params.endDate,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -665,10 +867,13 @@ class BillingService {
   ) {}
 
   /** Get current billing period usage */
-  async getUsage(): Promise<Record<string, unknown>> {
+  async getUsage(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/billing/usage';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -680,6 +885,7 @@ class BillingService {
     endDate?: string;
     limit?: number;
     offset?: number;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/billing/usage/history';
 
@@ -691,6 +897,9 @@ class BillingService {
         offset: params.offset,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -701,6 +910,7 @@ class BillingService {
     status?: 'draft' | 'pending' | 'paid' | 'cancelled';
     limit?: number;
     offset?: number;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/billing/invoices';
 
@@ -711,17 +921,26 @@ class BillingService {
         offset: params.offset,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Get invoice details */
-  async getInvoicesById(params: { id: string }): Promise<Record<string, unknown>> {
+  async getInvoicesById(params: {
+    id: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/billing/invoices/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -741,6 +960,7 @@ class AdminService {
     plan?: 'free' | 'pro' | 'enterprise';
     limit?: string;
     offset?: string;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/admin/tenants';
 
@@ -752,27 +972,42 @@ class AdminService {
         offset: params.offset,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Create new tenant */
-  async createTenants(params: { body: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  async createTenants(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/admin/tenants';
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 
   /** Get tenant by ID */
-  async getTenantsById(params: { id: string }): Promise<Record<string, unknown>> {
+  async getTenantsById(params: {
+    id: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/admin/tenants/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
@@ -782,11 +1017,15 @@ class AdminService {
   async updateTenantsById(params: {
     id: string;
     body: Record<string, unknown>;
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/admin/tenants/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.patch<Record<string, unknown>>(url, params.body, config);
     return response.data;
@@ -796,6 +1035,7 @@ class AdminService {
   async deleteTenantsById(params: {
     id: string;
     action?: 'suspend' | 'delete';
+    signal?: AbortSignal;
   }): Promise<Record<string, unknown>> {
     let url = '/api/v2/admin/tenants/{id}';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
@@ -805,6 +1045,9 @@ class AdminService {
         action: params.action,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.delete<Record<string, unknown>>(url, config);
     return response.data;
@@ -860,27 +1103,36 @@ export class ApiClient {
   }
 
   /** Health check */
-  async healthCheck(): Promise<Record<string, unknown>> {
+  async healthCheck(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/health';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Readiness check */
-  async healthCheckReady(): Promise<Record<string, unknown>> {
+  async healthCheckReady(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/health/ready';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Get artifacts for authenticated user */
-  async artifacts(params: { path?: string }): Promise<Record<string, unknown>> {
+  async artifacts(params: {
+    path?: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/artifacts';
 
     const config: AxiosRequestConfig = {
@@ -888,27 +1140,41 @@ export class ApiClient {
         path: params.path,
       },
     };
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Telegram webhook endpoint */
-  async postApiV2TelegramWebhook(): Promise<Record<string, unknown>> {
+  async postApiV2TelegramWebhook(options?: {
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
     let url = '/api/v2/telegram/webhook';
 
     const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
 
     const response = await this.client.post<Record<string, unknown>>(url, config);
     return response.data;
   }
 
   /** Download artifact via signed token */
-  async getApiV2TelegramDownloadByToken(params: { token: string }): Promise<void> {
+  async getApiV2TelegramDownloadByToken(params: {
+    token: string;
+    signal?: AbortSignal;
+  }): Promise<void> {
     let url = '/api/v2/telegram/download/{token}';
     url = url.replace('{' + 'token' + '}', encodeURIComponent(String(params.token)));
 
     const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
 
     const response = await this.client.get<void>(url, config);
     return response.data;

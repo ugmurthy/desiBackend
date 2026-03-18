@@ -1,6 +1,7 @@
 import { getAdminDatabase } from "../db/admin-schema.js";
 import { getTenantClientService } from "./tenant-client.js";
 import type { ProfileRegistry, TelegramIdentity } from "../db/telegram-schema.js";
+import { CreateOnlyHandler } from "./example-profile-handler.js";
 
 // --- Types ---
 
@@ -13,12 +14,20 @@ export interface ProfileHandlerResult {
   error?: string;
 }
 
+export interface TelegramAttachment {
+  fileId: string;
+  fileName?: string;
+  mimeType?: string;
+  fileSize?: number;
+}
+
 export interface ProfileHandler {
   handleRequest(params: {
     tenantId: string;
     userId: string;
     goalText: string;
     agentName?: string;
+    attachment?: TelegramAttachment;
   }): Promise<ProfileHandlerResult>;
 
   handleClarification(params: {
@@ -36,6 +45,7 @@ class DefaultProfileHandler implements ProfileHandler {
     userId: string;
     goalText: string;
     agentName?: string;
+    attachment?: TelegramAttachment;
   }): Promise<ProfileHandlerResult> {
     const client = await getTenantClientService().getClient(params.tenantId);
     const goalText = `${params.goalText}\nWrite the final report to a markdown file.`;
@@ -121,6 +131,7 @@ class DefaultProfileHandler implements ProfileHandler {
 
 const handlerRegistry = new Map<string, ProfileHandler>();
 handlerRegistry.set("create-and-execute", new DefaultProfileHandler());
+handlerRegistry.set("create-only", new CreateOnlyHandler());
 
 // --- Lookup functions ---
 

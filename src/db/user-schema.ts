@@ -50,7 +50,7 @@ export interface AuthLog {
   createdAt: number; // Unix timestamp
 }
 
-const TENANT_DB_BASE = join(homedir(), ".desiAgent", "tenants");
+const TENANT_DB_BASE = join(process.env.DESI_DATA_DIR || homedir(), ".desiAgent", "tenants");
 
 export function getTenantDbPath(tenantId: string): string {
   return join(TENANT_DB_BASE, tenantId, "agent.db");

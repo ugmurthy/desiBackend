@@ -62,7 +62,7 @@ export interface Agent {
   updatedAt: string;
 }
 
-const ADMIN_DB_DIR = join(homedir(), ".desiAgent");
+const ADMIN_DB_DIR = join(process.env.DESI_DATA_DIR || homedir(), ".desiAgent");
 const ADMIN_DB_PATH = join(ADMIN_DB_DIR, "admin.db");
 
 let adminDb: Database | null = null;

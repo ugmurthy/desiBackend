@@ -141,8 +141,11 @@ export async function buildApp() {
     openrouterApiKey: app.config.OPENROUTER_API_KEY || undefined,
     ollamaBaseUrl: app.config.OLLAMA_BASE_URL || undefined,
     logLevel: app.config.LOG_LEVEL as "debug" | "info" | "warn" | "error",
+    autoStartScheduler: app.config.AUTO_START_SCHEDULER,
   });
-  app.log.info(`TenantClientService initialized LOGLEVEL: ${app.config.LOG_LEVEL} : (provider: ${app.config.LLM_PROVIDER}, model: ${app.config.LLM_MODEL})`);
+  app.log.info(
+    `TenantClientService initialized LOGLEVEL: ${app.config.LOG_LEVEL} : (provider: ${app.config.LLM_PROVIDER}, model: ${app.config.LLM_MODEL}, autoStartScheduler: ${app.config.AUTO_START_SCHEDULER})`
+  );
 
   await app.register(healthRoutes, { prefix: "/api/v2" });
   await app.register(authRoutes, { prefix: "/api/v2" });

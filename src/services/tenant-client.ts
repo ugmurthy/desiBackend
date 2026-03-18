@@ -10,6 +10,7 @@ interface TenantClientOptions {
   ollamaBaseUrl?: string;
   modelName: string;
   logLevel?: "debug" | "info" | "warn" | "error";
+  autoStartScheduler?: boolean;
 }
 
 class TenantClientService {
@@ -40,7 +41,7 @@ class TenantClientService {
       ollamaBaseUrl: this.options.ollamaBaseUrl,
       modelName: this.options.modelName,
       logLevel: this.options.logLevel ?? "info",
-      autoStartScheduler: false,
+      autoStartScheduler: this.options.autoStartScheduler ?? true,
     };
 
     const client = await setupDesiAgent(config);

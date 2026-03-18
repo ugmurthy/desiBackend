@@ -38,9 +38,3 @@ scripts
 NOTES.md
 artifacts
 
-fly.toml
-Dockerfile
-docker-compose.yaml
-scripts/
-
-

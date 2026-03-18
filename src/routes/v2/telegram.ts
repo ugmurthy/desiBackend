@@ -4,6 +4,7 @@ import { getTenantDbPath, initializeTenantUserSchema } from "../../db/user-schem
 import {
   handleTelegramUpdate,
   seedDefaultProfile,
+  seedCreateOnlyProfile,
   type TelegramUpdate,
 } from "../../services/telegram-bot";
 import { validateDownloadToken } from "../../services/telegram-polling";
@@ -11,8 +12,9 @@ import { checkRateLimit } from "../../services/telegram-rate-limit";
 import { getTenantBySlug } from "../../services/admin";
 
 const telegramRoutes: FastifyPluginAsync = async (fastify) => {
-  // Seed default profile on registration
+  // Seed profiles on registration
   seedDefaultProfile();
+  seedCreateOnlyProfile();
 
   fastify.post<{ Body: TelegramUpdate }>(
     "/telegram/webhook",

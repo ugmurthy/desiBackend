@@ -31,7 +31,157 @@ async function readFileContent(filePath: string, artifactsDir: string): Promise<
   return readFile(fullPath, "utf-8");
 }
 
+interface ArtifactsParams {
+  path: string;
+}
+
 const artifactsRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /artifacts/:path - return file contents for a specific artifact by filename
+  fastify.get<{ Params: ArtifactsParams }>(
+    "/artifacts/:path",
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ["Artifacts"],
+        summary: "Get a specific artifact file by path",
+        description: "Retrieve the contents of a specific artifact file from the artifacts directory. The authenticated user must own the resource.",
+        params: {
+          type: "object",
+          required: ["path"],
+          properties: {
+            path: { type: "string", description: "Filename of the artifact to retrieve" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              artifact: {
+                type: "object",
+                properties: {
+                  path: { type: "string", example: "output.json" },
+                  toolName: { type: "string", enum: ["readFile", "writeFile"], example: "writeFile" },
+                  executionId: { type: "string", example: "exec-123" },
+                  createdAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+                  content: { type: "string", example: "{\"key\": \"value\"}" },
+                },
+              },
+            },
+          },
+          401: error401Schema,
+          404: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 404 },
+              error: { type: "string", example: "Not Found" },
+              message: { type: "string", example: "Artifact not found" },
+            },
+          },
+          500: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number", example: 500 },
+              error: { type: "string", example: "Internal Server Error" },
+              message: { type: "string", example: "Failed to read file" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const userId = auth.user.id;
+      const requestedPath = request.params.path;
+
+      const ownedExecutionIds = getOwnedResourceIds(auth.tenantDb, userId, "execution");
+
+      if (ownedExecutionIds.length === 0) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: "Artifact not found",
+        });
+      }
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      const artifacts: Artifact[] = [];
+
+      for (const executionId of ownedExecutionIds) {
+        try {
+          const subSteps = await client.executions.getSubSteps(executionId);
+
+          for (const step of subSteps) {
+            const typedStep = step as unknown as {
+              toolOrPromptName?: string;
+              toolOrPromptParams?: string | Record<string, unknown>;
+              createdAt?: string;
+            };
+
+            if (typedStep.toolOrPromptName === "readFile" || typedStep.toolOrPromptName === "writeFile") {
+              let params: Record<string, unknown> = {};
+
+              if (typeof typedStep.toolOrPromptParams === "string") {
+                try {
+                  params = JSON.parse(typedStep.toolOrPromptParams);
+                } catch {
+                  continue;
+                }
+              } else if (typedStep.toolOrPromptParams) {
+                params = typedStep.toolOrPromptParams;
+              }
+
+              const filePath = params.path || params.filePath || params.file;
+              if (typeof filePath === "string") {
+                artifacts.push({
+                  path: filePath,
+                  toolName: typedStep.toolOrPromptName,
+                  executionId,
+                  createdAt: typedStep.createdAt || new Date().toISOString(),
+                });
+              }
+            }
+          }
+        } catch {
+          // Execution may have been deleted, skip it
+        }
+      }
+
+      const matchingArtifact = artifacts.find((a) =>
+        a.path === requestedPath ||
+        a.path.endsWith(`/${requestedPath}`) ||
+        a.path === `./${requestedPath}`
+      );
+
+      if (!matchingArtifact) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Artifact not found. Available paths: ${artifacts.map(a => a.path).join(", ")}`,
+        });
+      }
+
+      try {
+        const artifactsDir = getArtifactsDir(auth.tenant.id);
+        const content = await readFileContent(matchingArtifact.path, artifactsDir);
+        const artifactWithContent: ArtifactWithContent = {
+          ...matchingArtifact,
+          content,
+        };
+
+        return { artifact: artifactWithContent };
+      } catch (err) {
+        return reply.status(500).send({
+          statusCode: 500,
+          error: "Internal Server Error",
+          message: `Failed to read file: ${err instanceof Error ? err.message : "Unknown error"}`,
+        });
+      }
+    }
+  );
+
+  // GET /artifacts - list all artifacts or get one by query param
   fastify.get<{ Querystring: ArtifactsQuerystring }>(
     "/artifacts",
     {

@@ -18,6 +18,10 @@ export const envSchema = {
       type: "string" as const,
       default: "info",
     },
+    AUTO_START_SCHEDULER: {
+      type: "boolean" as const,
+      default: true,
+    },
     LLM_PROVIDER: {
       type: "string" as const,
       default: "openai",
@@ -68,7 +72,11 @@ export const envSchema = {
     },
     DEFAULT_AGENT_NAME: {
       type: "string" as const,
-      default: "DecomposerV8",
+      default: "DecomposerV9",
+    },
+    DESI_DATA_DIR: {
+      type: "string" as const,
+      default: "",
     },
   },
 };
@@ -80,6 +88,7 @@ export type EnvConfig = {
   HOST: string;
   NODE_ENV: string;
   LOG_LEVEL: string;
+  AUTO_START_SCHEDULER: boolean;
   LLM_PROVIDER: LLMProvider;
   LLM_MODEL: string;
   OPENAI_API_KEY: string;
@@ -93,6 +102,7 @@ export type EnvConfig = {
   TELEGRAM_POLL_TIMEOUT_MS: number;
   DEFAULT_AGENT_NAME: string;
   TELEGRAM_WEBHOOK_SECRET: string;
+  DESI_DATA_DIR: string;
 };
 
 declare module "fastify" {
