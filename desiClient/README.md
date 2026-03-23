@@ -28,6 +28,7 @@ const response = await client._default.healthCheck(/* params */);
 
 - `_default.healthCheck(options?)`
 - `_default.healthCheckReady(options?)`
+- `_default.getApiV2ArtifactsByPath(path)`
 - `_default.artifacts(options?)`
 - `_default.postApiV2TelegramWebhook(options?)`
 - `_default.getApiV2TelegramDownloadByToken(token)`
@@ -87,7 +88,7 @@ const response = await client._default.healthCheck(/* params */);
 - `executions.deleteById(id)`
 - `executions.getByIdDetails(id)`
 - `executions.getSubSteps(id)`
-- `executions.getEvents(id)`
+- `executions.getEvents(id, options?)`
 - `executions.resume(id)`
 
 ### tools
@@ -149,6 +150,26 @@ Checks if the service is ready to accept requests by verifying database connecti
 | `checks` | object | No |  |
 
 **Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
+
+---
+
+#### `_default.getApiV2ArtifactsByPath(path)`
+
+Retrieve the contents of a specific artifact file from the artifacts directory. The authenticated user must own the resource.
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `path` | string | Yes | |
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `artifact` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1239,15 +1260,21 @@ Retrieve only the sub-steps for a specific execution.
 
 ---
 
-#### `executions.getEvents(id)`
+#### `executions.getEvents(id, options?)`
 
-Stream real-time execution events via Server-Sent Events (SSE). The stream will close when the execution completes or fails.
+Stream real-time execution events via Server-Sent Events (SSE). The stream will close when the execution completes or fails. Use ?format=text for human-readable output.
 
 **Path Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | |
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `format` | string enum: [`json`, `text`] | No | |
 
 **Response:**
 

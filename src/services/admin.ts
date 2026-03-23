@@ -1,6 +1,8 @@
 import { getAdminDatabase, type Tenant, type TenantQuotas, type TenantStatus, type TenantPlan } from "../db/admin-schema";
-import { initializeTenantUserSchema } from "../db/user-schema";
+import { initializeTenantUserSchema, getTenantDbPath } from "../db/user-schema";
 import { initializeApiKeySchema } from "../db/api-key-schema";
+import { createApiKey, type CreateApiKeyResult } from "./api-key";
+import { Database as SqliteDatabase } from "bun:sqlite";
 
 export interface CreateTenantInput {
   name: string;
@@ -188,4 +190,66 @@ export function suspendTenant(id: string): Tenant | null {
 
 export function activateTenant(id: string): Tenant | null {
   return updateTenant(id, { status: "active" });
+}
+
+export interface BootstrapTenantInput {
+  slug: string;
+  name: string;
+  plan?: TenantPlan;
+  adminEmail: string;
+  adminName: string;
+}
+
+export interface BootstrapTenantResult {
+  tenant: Tenant;
+  admin: { id: string; email: string; name: string; role: string };
+  apiKey: { fullKey: string; keyPrefix: string };
+}
+
+export async function bootstrapTenant(input: BootstrapTenantInput): Promise<BootstrapTenantResult> {
+  // Step 1: Create tenant (also initializes tenant DB)
+  const tenant = await createTenant({
+    name: input.name,
+    slug: input.slug,
+    plan: input.plan,
+  });
+
+  try {
+    // Step 2: Open tenant DB and create admin user
+    const tenantDbPath = getTenantDbPath(tenant.id);
+    const tenantDb = new SqliteDatabase(tenantDbPath);
+
+    const userId = crypto.randomUUID();
+    const stmt = tenantDb.prepare(`
+      INSERT INTO users (id, email, name, role, tenantId)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    stmt.run(userId, input.adminEmail, input.adminName, "admin", tenant.id);
+
+    // Step 3: Create API key for the admin user
+    const apiKeyResult: CreateApiKeyResult = await createApiKey(tenantDb, tenant.id, {
+      userId,
+      name: "default",
+    });
+
+    tenantDb.close();
+
+    return {
+      tenant,
+      admin: {
+        id: userId,
+        email: input.adminEmail,
+        name: input.adminName,
+        role: "admin",
+      },
+      apiKey: {
+        fullKey: apiKeyResult.fullKey,
+        keyPrefix: apiKeyResult.keyPrefix,
+      },
+    };
+  } catch (error) {
+    // Rollback: delete the tenant if admin/key creation failed
+    deleteTenant(tenant.id);
+    throw error;
+  }
 }

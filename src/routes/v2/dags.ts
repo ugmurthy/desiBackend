@@ -118,6 +118,7 @@ const clarificationRequiredResponseSchema = {
   type: "object",
   properties: {
     status: { type: "string", example: "clarification_required" },
+    dagId: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
     clarificationQuery: { type: "string", example: "Please specify the date range for the analysis" },
     result: { type: "object" },
     usage: { type: "object" },
@@ -268,8 +269,10 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         const detailedResult = result as ExtendedPlanningResultFields;
         //console.log(JSON.stringify(request,null,2), "Backend: Created DAG");
         if (result.status === "clarification_required") {
+          insertResourceOwnership(auth.tenantDb, auth.user.id, "dag", result.dagId);
           return reply.status(202).send({
             status: "clarification_required",
+            dagId: result.dagId,
             clarificationQuery: result.clarificationQuery,
             result: detailedResult.result,
             usage: detailedResult.usage,
@@ -469,6 +472,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         if (result.status === "clarification_required") {
           return reply.status(202).send({
             status: "clarification_required",
+            dagId: result.dagId,
             clarificationQuery: result.clarificationQuery,
             result: detailedResult.result,
             usage: detailedResult.usage,

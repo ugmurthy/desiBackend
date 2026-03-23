@@ -19,6 +19,7 @@ import costsRoutes from "./routes/v2/costs";
 import billingRoutes from "./routes/v2/billing";
 import adminRoutes from "./routes/v2/admin";
 import telegramRoutes from "./routes/v2/telegram";
+import skillsRoutes from "./routes/v2/skills";
 import { initializeTenantClientService } from "./services/tenant-client";
 
 export async function buildApp() {
@@ -110,6 +111,7 @@ export async function buildApp() {
         { name: "Executions", description: "Agent execution management" },
         { name: "Artifacts", description: "File artifacts from executions" },
         { name: "Tools", description: "Tool management endpoints" },
+        { name: "Skills", description: "Skill discovery endpoints" },
         { name: "Costs", description: "Cost tracking endpoints" },
         { name: "Billing", description: "Billing and usage endpoints" },
         { name: "Admin", description: "Administrative endpoints" },
@@ -156,6 +158,7 @@ export async function buildApp() {
   await app.register(executionsRoutes, { prefix: "/api/v2" });
   await app.register(artifactsRoutes, { prefix: "/api/v2" });
   await app.register(toolsRoutes, { prefix: "/api/v2" });
+  await app.register(skillsRoutes, { prefix: "/api/v2" });
   await app.register(costsRoutes, { prefix: "/api/v2" });
   await app.register(billingRoutes, { prefix: "/api/v2" });
   await app.register(adminRoutes, { prefix: "/api/v2" });

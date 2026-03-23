@@ -2384,6 +2384,9 @@ paths:
                   status:
                     type: string
                     example: clarification_required
+                  dagId:
+                    type: string
+                    example: dag_EbvukFKKz6P4CveL-_sj_
                   clarificationQuery:
                     type: string
                     example: Please specify the date range for the analysis
@@ -2648,6 +2651,9 @@ paths:
                   status:
                     type: string
                     example: clarification_required
+                  dagId:
+                    type: string
+                    example: dag_EbvukFKKz6P4CveL-_sj_
                   clarificationQuery:
                     type: string
                     example: Please specify the date range for the analysis
@@ -2768,6 +2774,9 @@ paths:
                   status:
                     type: string
                     example: clarification_required
+                  dagId:
+                    type: string
+                    example: dag_EbvukFKKz6P4CveL-_sj_
                   clarificationQuery:
                     type: string
                     example: Please specify the date range for the analysis

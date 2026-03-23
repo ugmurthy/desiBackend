@@ -13,6 +13,23 @@ interface TenantClientOptions {
   autoStartScheduler?: boolean;
 }
 
+function assertSmtpEnvConfigured(): void {
+  const required = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const;
+  const missing = required.filter((key) => {
+    const value = process.env[key];
+    return !value || value.trim().length === 0;
+  });
+
+  if (missing.length === 0) {
+    return;
+  }
+
+  const present = required.filter((key) => !missing.includes(key));
+  throw new Error(
+    `SMTP env missing before setupDesiAgent. missing=[${missing.join(",")}] present=[${present.join(",")}].`
+  );
+}
+
 class TenantClientService {
   private clients: Map<string, DesiAgentClient> = new Map();
   private options: TenantClientOptions;
@@ -43,6 +60,8 @@ class TenantClientService {
       logLevel: this.options.logLevel ?? "info",
       autoStartScheduler: this.options.autoStartScheduler ?? true,
     };
+
+    assertSmtpEnvConfigured();
 
     const client = await setupDesiAgent(config);
     console.log(`[TenantClientService] DesiAgent version: ${client.version ?? "unknown"} initialized for tenant: ${tenantId}`);

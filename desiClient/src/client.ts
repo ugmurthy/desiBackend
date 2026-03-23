@@ -724,11 +724,19 @@ class ExecutionsService {
   }
 
   /** Stream execution events */
-  async getEvents(params: { id: string; signal?: AbortSignal }): Promise<string> {
+  async getEvents(params: {
+    id: string;
+    format?: 'json' | 'text';
+    signal?: AbortSignal;
+  }): Promise<string> {
     let url = '/api/v2/executions/{id}/events';
     url = url.replace('{' + 'id' + '}', encodeURIComponent(String(params.id)));
 
-    const config: AxiosRequestConfig = {};
+    const config: AxiosRequestConfig = {
+      params: {
+        format: params.format,
+      },
+    };
     if (params.signal) {
       config.signal = params.signal;
     }
@@ -1122,6 +1130,23 @@ export class ApiClient {
     const config: AxiosRequestConfig = {};
     if (options?.signal) {
       config.signal = options.signal;
+    }
+
+    const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** Get a specific artifact file by path */
+  async getApiV2ArtifactsByPath(params: {
+    path: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/artifacts/{path}';
+    url = url.replace('{' + 'path' + '}', encodeURIComponent(String(params.path)));
+
+    const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
     }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);

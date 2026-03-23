@@ -8,6 +8,7 @@ import {
   deleteTenant,
   suspendTenant,
   activateTenant,
+  bootstrapTenant,
   type CreateTenantInput,
   type UpdateTenantInput,
   type ListTenantsFilter,
@@ -18,6 +19,13 @@ interface CreateTenantBody {
   name: string;
   slug: string;
   plan?: TenantPlan;
+}
+
+interface BootstrapTenantBody {
+  name: string;
+  plan?: TenantPlan;
+  adminEmail: string;
+  adminName: string;
 }
 
 interface UpdateTenantBody {
@@ -412,6 +420,105 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         createdAt: suspended.createdAt,
         updatedAt: suspended.updatedAt,
       });
+    }
+  );
+
+  fastify.post<{ Params: { tenant: string }; Body: BootstrapTenantBody }>(
+    "/admin/bootstrap/:tenant",
+    {
+      preHandler: [authenticateAdmin, ensureAdminScope],
+      schema: {
+        tags: ["Admin"],
+        summary: "Bootstrap a new tenant with admin user",
+        description: "Atomically creates a new tenant and its first admin user with an API key. Requires super-admin scope.",
+        params: {
+          type: "object",
+          required: ["tenant"],
+          properties: {
+            tenant: { type: "string", pattern: "^[a-z0-9-]+$", description: "Tenant slug", example: "acme-corp" },
+          },
+        },
+        body: {
+          type: "object",
+          required: ["name", "adminEmail", "adminName"],
+          properties: {
+            name: { type: "string", minLength: 1, description: "Tenant display name", example: "Acme Corporation" },
+            plan: { type: "string", enum: ["free", "pro", "enterprise"], description: "Tenant plan (defaults to free)", example: "free" },
+            adminEmail: { type: "string", format: "email", description: "Admin user email", example: "admin@acme.com" },
+            adminName: { type: "string", minLength: 1, description: "Admin user name", example: "Alice Admin" },
+          },
+        },
+        response: {
+          201: {
+            description: "Tenant and admin user created successfully",
+            type: "object",
+            properties: {
+              tenant: tenantResponseSchema,
+              admin: {
+                type: "object",
+                properties: {
+                  id: { type: "string", example: "550e8400-e29b-41d4-a716-446655440000" },
+                  email: { type: "string", example: "admin@acme.com" },
+                  name: { type: "string", example: "Alice Admin" },
+                  role: { type: "string", example: "admin" },
+                },
+              },
+              apiKey: {
+                type: "object",
+                properties: {
+                  fullKey: { type: "string", example: "desi_sk_live_..." },
+                  keyPrefix: { type: "string", example: "desi_sk_live_abcd1234" },
+                },
+              },
+            },
+          },
+          400: { description: "Invalid request", ...errorResponseSchema(400, "Bad Request", "body must have required property 'name'") },
+          401: { description: "Admin authentication required", ...error401Schema },
+          403: { description: "Admin scope required", ...error403Schema },
+          409: { description: "Tenant with slug already exists", ...errorResponseSchema(409, "Conflict", "A tenant with this slug already exists") },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { tenant: slug } = request.params;
+      const { name, plan, adminEmail, adminName } = request.body;
+
+      try {
+        const result = await bootstrapTenant({
+          slug,
+          name,
+          plan,
+          adminEmail,
+          adminName,
+        });
+
+        return reply.status(201).send({
+          tenant: {
+            id: result.tenant.id,
+            name: result.tenant.name,
+            slug: result.tenant.slug,
+            status: result.tenant.status,
+            plan: result.tenant.plan,
+            quotas: JSON.parse(result.tenant.quotas),
+            createdAt: result.tenant.createdAt,
+            updatedAt: result.tenant.updatedAt,
+          },
+          admin: result.admin,
+          apiKey: result.apiKey,
+        });
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes("UNIQUE constraint failed")
+        ) {
+          return reply.status(409).send({
+            statusCode: 409,
+            error: "Conflict",
+            message: "A tenant with this slug already exists",
+          });
+        }
+        throw error;
+      }
     }
   );
 };

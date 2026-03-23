@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
+import { formatEvent } from "@ugm/desiagent";
 import { error400Schema, error401Schema, error403Schema, error404Schema } from "./schemas";
 import { getOwnedResourceIds, checkResourceOwnership } from "../../db/user-schema";
 
@@ -453,15 +454,21 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.get<{ Params: ExecutionIdParams }>(
+  fastify.get<{ Params: ExecutionIdParams; Querystring: { format?: string } }>(
     "/executions/:id/events",
     {
       preHandler: [authenticate],
       schema: {
         tags: ["Executions"],
         summary: "Stream execution events",
-        description: "Stream real-time execution events via Server-Sent Events (SSE). The stream will close when the execution completes or fails.",
+        description: "Stream real-time execution events via Server-Sent Events (SSE). The stream will close when the execution completes or fails. Use ?format=text for human-readable output.",
         params: executionIdParamSchema,
+        querystring: {
+          type: "object",
+          properties: {
+            format: { type: "string", enum: ["json", "text"], default: "json", description: "Output format: json (default) or text (human-readable)" },
+          },
+        },
         response: {
           200: {
             type: "string",
@@ -475,6 +482,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const auth = request.auth!;
       const { id } = request.params;
+      const useText = request.query.format === "text";
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
@@ -500,7 +508,7 @@ const executionsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         for await (const event of client.executions.streamEvents(id)) {
-          const data = JSON.stringify(event);
+          const data = useText ? formatEvent(event) : JSON.stringify(event);
           reply.raw.write(`data: ${data}\n\n`);
         }
       } catch (error) {
