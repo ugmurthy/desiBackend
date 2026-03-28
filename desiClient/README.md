@@ -30,6 +30,9 @@ const response = await client._default.healthCheck(/* params */);
 - `_default.healthCheckReady(options?)`
 - `_default.getApiV2ArtifactsByPath(path)`
 - `_default.artifacts(options?)`
+- `_default.getApiV2Skills(options?)`
+- `_default.getApiV2SkillBySkillname(skillname)`
+- `_default.postApiV2AdminBootstrapByTenant(tenant, body)`
 - `_default.postApiV2TelegramWebhook(options?)`
 - `_default.getApiV2TelegramDownloadByToken(token)`
 
@@ -189,6 +192,72 @@ Retrieve all artifact names (files) created by the authenticated user's executio
 |----------|------|----------|-------------|
 | `artifacts` | array of object | No |  |
 | `artifact` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
+---
+
+#### `_default.getApiV2Skills(options?)`
+
+Returns all detected skill names from configured skill directories. Tenant admin role required.
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `skills` | array of string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
+
+---
+
+#### `_default.getApiV2SkillBySkillname(skillname)`
+
+Returns the SKILL.md content for a specific skill name. Tenant admin role required.
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `skillname` | string | Yes | |
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `skill` | string | No |  |
+| `content` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
+---
+
+#### `_default.postApiV2AdminBootstrapByTenant(tenant, body)`
+
+Atomically creates a new tenant and its first admin user with an API key. Requires super-admin scope.
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `tenant` | string | Yes | |
+
+**Request Body:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Tenant display name |
+| `plan` | string enum: [`free`, `pro`, `enterprise`] | No | Tenant plan (defaults to free) |
+| `adminEmail` | string (email) | Yes | Admin user email |
+| `adminName` | string | Yes | Admin user name |
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `tenant` | object | No |  |
+| `admin` | object | No |  |
+| `apiKey` | object | No |  |
 
 **Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
@@ -840,6 +909,7 @@ Retrieves a paginated list of DAGs with optional filtering by status and creatio
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `status` | string enum: [`success`, `pending`, `active`, `paused`, `completed`, `failed`, `cancelled`] | No | |
+| `search` | string | No | |
 | `createdAfter` | string (date-time) | No | |
 | `createdBefore` | string (date-time) | No | |
 | `limit` | integer | No | |

@@ -442,6 +442,7 @@ class DagsService {
   /** List DAGs with filters */
   async list(params: {
     status?: 'success' | 'pending' | 'active' | 'paused' | 'completed' | 'failed' | 'cancelled';
+    search?: string;
     createdAfter?: string;
     createdBefore?: string;
     limit?: number;
@@ -453,6 +454,7 @@ class DagsService {
     const config: AxiosRequestConfig = {
       params: {
         status: params.status,
+        search: params.search,
         createdAfter: params.createdAfter,
         createdBefore: params.createdBefore,
         limit: params.limit,
@@ -1170,6 +1172,54 @@ export class ApiClient {
     }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** List available skills */
+  async getApiV2Skills(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/skills';
+
+    const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
+
+    const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** Get skill spec */
+  async getApiV2SkillBySkillname(params: {
+    skillname: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/skill/{skillname}';
+    url = url.replace('{' + 'skillname' + '}', encodeURIComponent(String(params.skillname)));
+
+    const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
+
+    const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** Bootstrap a new tenant with admin user */
+  async postApiV2AdminBootstrapByTenant(params: {
+    tenant: string;
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/admin/bootstrap/{tenant}';
+    url = url.replace('{' + 'tenant' + '}', encodeURIComponent(String(params.tenant)));
+
+    const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
+
+    const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
     return response.data;
   }
 

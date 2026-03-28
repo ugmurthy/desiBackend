@@ -15,6 +15,7 @@ export default defineConfig({
     // Allow vitest to transform all source files (including bun:sqlite refs)
     server: {
       deps: {
+	        // disables sourcemap processing for tests
         inline: [/^(?!node_modules)/],
       },
     },

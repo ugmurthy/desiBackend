@@ -57,6 +57,7 @@ class TenantClientService {
       openrouterApiKey: this.options.openrouterApiKey,
       ollamaBaseUrl: this.options.ollamaBaseUrl,
       modelName: this.options.modelName,
+      policyEnforcement: "soft",
       logLevel: this.options.logLevel ?? "info",
       autoStartScheduler: this.options.autoStartScheduler ?? true,
     };

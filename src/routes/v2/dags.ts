@@ -3,7 +3,7 @@ import { authenticate } from "../../middleware/authenticate";
 import { getTenantClientService } from "../../services/tenant-client";
 import type { LLMProvider } from "../../config/env";
 import { error400Schema, error401Schema, error403Schema, error404Schema } from "./schemas";
-import { insertResourceOwnership, getOwnedResourceIds, checkResourceOwnership } from "../../db/user-schema";
+import { insertResourceOwnership, ensureResourceOwnership, getOwnedResourceIds, checkResourceOwnership } from "../../db/user-schema";
 
 interface DagIdParams {
   id: string;
@@ -32,6 +32,7 @@ interface UpdateDagBody {
 
 interface ListDagsQuery {
   status?: "pending" |  "success" | "failed" ;
+  search?: string;
   createdAfter?: string;
   createdBefore?: string;
   limit?: number;
@@ -530,6 +531,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
               enum: ["success","pending", "active", "paused", "completed", "failed", "cancelled"],
               example: "active",
             },
+            search: { type: "string", description: "Search DAGs by title (case-insensitive partial match)", example: "my workflow" },
             createdAfter: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
             createdBefore: { type: "string", format: "date-time", example: "2024-12-31T23:59:59Z" },
             limit: { type: "integer", minimum: 1, maximum: 100, default: 20, example: 20 },
@@ -551,7 +553,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request) => {
       const auth = request.auth!;
-      const { status, createdAfter, createdBefore, limit = 20, offset = 0 } = request.query;
+      const { status, search, createdAfter, createdBefore, limit = 20, offset = 0 } = request.query;
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
@@ -571,7 +573,14 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const allDags = await client.dags.list(filter);
-      const ownedDags = allDags.filter((dag) => ownedDagIdSet.has((dag as { id: string }).id));
+      let ownedDags = allDags.filter((dag) => ownedDagIdSet.has((dag as { id: string }).id));
+      if (search) {
+        const searchLower = search.toLowerCase();
+        ownedDags = ownedDags.filter((dag) => {
+          const title = (dag as { dagTitle?: string }).dagTitle;
+          return title && title.toLowerCase().includes(searchLower);
+        });
+      }
       // let filteredDags = allDags;
       // if (createdAfter) {
       //   const afterDate = new Date(createdAfter);
@@ -1066,19 +1075,22 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
         throw error;
       }
 
-      const ownedExecutionIds = getOwnedResourceIds(auth.tenantDb, auth.user.id, "execution");
-      const ownedExecutionIdSet = new Set(ownedExecutionIds);
-
       const allDagExecutions = await client.executions.list({ dagId: dagId });
-      const ownedDagExecutions = allDagExecutions.filter((exec) => 
-        ownedExecutionIdSet.has((exec as { id: string }).id)
-      );
+
+      for (const execution of allDagExecutions) {
+        const executionId = (execution as { id?: string }).id;
+        if (!executionId) continue;
+
+        // Scheduled runs may exist in the agent DB without a matching user ownership row.
+        // Backfill ownership here once DAG ownership is already established.
+        ensureResourceOwnership(auth.tenantDb, auth.user.id, "execution", executionId);
+      }
 
       return {
         dagId: dag.id,
         dagTitle: dag.dagTitle,
         dagStatus: dag.status,
-        executions: ownedDagExecutions.map((exec) => {
+        executions: allDagExecutions.map((exec) => {
           const e = exec as unknown as Record<string, unknown>;
           return {
             id: e.id,
