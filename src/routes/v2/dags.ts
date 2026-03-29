@@ -30,6 +30,11 @@ interface UpdateDagBody {
   dagTitle?: string;
 }
 
+interface ScheduledDagActionBody {
+  dagId: string;
+  action: "activate" | "deactivate";
+}
+
 interface ListDagsQuery {
   status?: "pending" |  "success" | "failed" ;
   search?: string;
@@ -165,6 +170,29 @@ const paginationSchema = {
   },
 } as const;
 
+const scheduledDagListItemSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
+    dagTitle: { type: "string", example: "Weekly Sales Report" },
+    cronSchedule: { type: "string", example: "0 9 * * 1" },
+    scheduleDescription: { type: "string", example: "Every Monday at 9:00 AM" },
+    scheduleActive: { type: "boolean", example: true },
+  },
+} as const;
+
+const scheduledDagActionResponseSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
+    dagTitle: { type: "string", example: "Weekly Sales Report" },
+    cronSchedule: { type: "string", example: "0 9 * * 1" },
+    scheduleActive: { type: "boolean", example: true },
+    timezone: { type: "string", example: "America/New_York" },
+    updatedAt: { type: "string", format: "date-time", example: "2024-01-01T00:00:00Z" },
+  },
+} as const;
+
 // ============ Helper Functions ============
 
 function mapDagToResponse(dag: Record<string, unknown>) {
@@ -186,6 +214,21 @@ function mapDagToListItem(dag: Record<string, unknown>) {
     createdAt: dag.createdAt,
     updatedAt: dag.updatedAt,
     metadata: dag.metadata,
+  };
+}
+
+function mapDagToScheduledActionResponse(dag: Record<string, unknown>) {
+  const metadata = typeof dag.metadata === "object" && dag.metadata !== null
+    ? dag.metadata as Record<string, unknown>
+    : {};
+
+  return {
+    id: dag.id,
+    dagTitle: dag.dagTitle,
+    cronSchedule: metadata.cronSchedule,
+    scheduleActive: metadata.scheduleActive,
+    timezone: metadata.timezone,
+    updatedAt: dag.updatedAt,
   };
 }
 
@@ -628,16 +671,7 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
             properties: {
               dags: {
                 type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    id: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
-                    dagTitle: { type: "string", example: "Weekly Sales Report" },
-                    cronSchedule: { type: "string", example: "0 9 * * 1" },
-                    scheduleDescription: { type: "string", example: "Every Monday at 9:00 AM" },
-                    scheduleActive: { type: "boolean", example: true },
-                  },
-                },
+                items: scheduledDagListItemSchema,
               },
             },
           },
@@ -650,8 +684,10 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const clientService = getTenantClientService();
       const client = await clientService.getClient(auth.tenant.id);
+      const ownedDagIdSet = new Set(getOwnedResourceIds(auth.tenantDb, auth.user.id, "dag"));
 
-      const scheduledDags = await client.dags.listScheduled();
+      const scheduledDags = (await client.dags.listScheduled())
+        .filter((dag) => ownedDagIdSet.has(dag.id));
 
       return {
         dags: scheduledDags.map((dag) => ({
@@ -662,6 +698,80 @@ const dagsRoutes: FastifyPluginAsync = async (fastify) => {
           scheduleActive: dag.scheduleActive,
         })),
       };
+    }
+  );
+
+  fastify.post<{ Body: ScheduledDagActionBody }>(
+    "/dags/scheduled",
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ["DAGs"],
+        summary: "Activate or deactivate a DAG schedule",
+        description: "Activates or deactivates scheduling for a DAG that already has a cron schedule configured.",
+        body: {
+          type: "object",
+          required: ["dagId", "action"],
+          properties: {
+            dagId: { type: "string", example: "dag_EbvukFKKz6P4CveL-_sj_" },
+            action: { type: "string", enum: ["activate", "deactivate"], example: "activate" },
+          },
+        },
+        response: {
+          200: { description: "DAG schedule updated successfully", ...scheduledDagActionResponseSchema },
+          400: { description: "Invalid schedule update request", ...error400Schema },
+          401: { description: "Unauthorized - missing or invalid authentication", ...error401Schema },
+          403: { description: "Forbidden - user does not own this DAG", ...error403Schema },
+          404: { description: "DAG not found", ...error404Schema },
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { dagId, action } = request.body;
+
+      const clientService = getTenantClientService();
+      const client = await clientService.getClient(auth.tenant.id);
+
+      if (!checkResourceOwnership(auth.tenantDb, auth.user.id, "dag", dagId)) {
+        const dagExists = await client.dags.get(dagId).then(() => true).catch(() => false);
+        if (!dagExists) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "DAG not found",
+          });
+        }
+        return reply.status(403).send({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "You do not have access to this DAG",
+        });
+      }
+
+      try {
+        const dag = action === "activate"
+          ? await client.dags.activateSchedule(dagId)
+          : await client.dags.deactivateSchedule(dagId);
+
+        return mapDagToScheduledActionResponse(dag as unknown as Record<string, unknown>);
+      } catch (error) {
+        if (error instanceof Error && error.name === "NotFoundError") {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "DAG not found",
+          });
+        }
+        if (error instanceof Error && error.name === "ValidationError") {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: "Bad Request",
+            message: error.message,
+          });
+        }
+        throw error;
+      }
     }
   );
 

@@ -532,6 +532,22 @@ class DagsService {
     return response.data;
   }
 
+  /** Activate or deactivate a DAG schedule */
+  async activateScheduled(params: {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/dags/scheduled';
+
+    const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
+
+    const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
+    return response.data;
+  }
+
   /** Get DAG by ID */
   async getById(params: { id: string; signal?: AbortSignal }): Promise<Record<string, unknown>> {
     let url = '/api/v2/dags/{id}';
@@ -776,6 +792,52 @@ class ToolsService {
     const config: AxiosRequestConfig = {};
     if (options?.signal) {
       config.signal = options.signal;
+    }
+
+    const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+}
+
+class SkillsService {
+  constructor(
+    private client: AxiosInstance,
+    private baseUrl: string,
+    private getToken: () => string | undefined
+  ) {}
+
+  /** List available skills */
+  async get(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/skills';
+
+    const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
+
+    const response = await this.client.get<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+}
+
+class SkillService {
+  constructor(
+    private client: AxiosInstance,
+    private baseUrl: string,
+    private getToken: () => string | undefined
+  ) {}
+
+  /** Get skill spec */
+  async getBySkillname(params: {
+    skillname: string;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/skill/{skillname}';
+    url = url.replace('{' + 'skillname' + '}', encodeURIComponent(String(params.skillname)));
+
+    const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
     }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
@@ -1062,6 +1124,59 @@ class AdminService {
     const response = await this.client.delete<Record<string, unknown>>(url, config);
     return response.data;
   }
+
+  /** Bootstrap a new tenant with admin user */
+  async bootstrapTenant(params: {
+    tenant: string;
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/admin/bootstrap/{tenant}';
+    url = url.replace('{' + 'tenant' + '}', encodeURIComponent(String(params.tenant)));
+
+    const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
+
+    const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
+    return response.data;
+  }
+}
+
+class TelegramService {
+  constructor(
+    private client: AxiosInstance,
+    private baseUrl: string,
+    private getToken: () => string | undefined
+  ) {}
+
+  /** Telegram webhook endpoint */
+  async setWebhook(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
+    let url = '/api/v2/telegram/webhook';
+
+    const config: AxiosRequestConfig = {};
+    if (options?.signal) {
+      config.signal = options.signal;
+    }
+
+    const response = await this.client.post<Record<string, unknown>>(url, config);
+    return response.data;
+  }
+
+  /** Download artifact via signed token */
+  async getDownload(params: { token: string; signal?: AbortSignal }): Promise<void> {
+    let url = '/api/v2/telegram/download/{token}';
+    url = url.replace('{' + 'token' + '}', encodeURIComponent(String(params.token)));
+
+    const config: AxiosRequestConfig = {};
+    if (params.signal) {
+      config.signal = params.signal;
+    }
+
+    const response = await this.client.get<void>(url, config);
+    return response.data;
+  }
 }
 
 export class ApiClient {
@@ -1075,9 +1190,12 @@ export class ApiClient {
   public readonly dags: DagsService;
   public readonly executions: ExecutionsService;
   public readonly tools: ToolsService;
+  public readonly skills: SkillsService;
+  public readonly skill: SkillService;
   public readonly costs: CostsService;
   public readonly billing: BillingService;
   public readonly admin: AdminService;
+  public readonly telegram: TelegramService;
 
   constructor(config: ApiClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
@@ -1103,9 +1221,12 @@ export class ApiClient {
     this.dags = new DagsService(this.client, this.baseUrl, () => this.token);
     this.executions = new ExecutionsService(this.client, this.baseUrl, () => this.token);
     this.tools = new ToolsService(this.client, this.baseUrl, () => this.token);
+    this.skills = new SkillsService(this.client, this.baseUrl, () => this.token);
+    this.skill = new SkillService(this.client, this.baseUrl, () => this.token);
     this.costs = new CostsService(this.client, this.baseUrl, () => this.token);
     this.billing = new BillingService(this.client, this.baseUrl, () => this.token);
     this.admin = new AdminService(this.client, this.baseUrl, () => this.token);
+    this.telegram = new TelegramService(this.client, this.baseUrl, () => this.token);
   }
 
   setToken(token: string): void {
@@ -1172,86 +1293,6 @@ export class ApiClient {
     }
 
     const response = await this.client.get<Record<string, unknown>>(url, config);
-    return response.data;
-  }
-
-  /** List available skills */
-  async getApiV2Skills(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>> {
-    let url = '/api/v2/skills';
-
-    const config: AxiosRequestConfig = {};
-    if (options?.signal) {
-      config.signal = options.signal;
-    }
-
-    const response = await this.client.get<Record<string, unknown>>(url, config);
-    return response.data;
-  }
-
-  /** Get skill spec */
-  async getApiV2SkillBySkillname(params: {
-    skillname: string;
-    signal?: AbortSignal;
-  }): Promise<Record<string, unknown>> {
-    let url = '/api/v2/skill/{skillname}';
-    url = url.replace('{' + 'skillname' + '}', encodeURIComponent(String(params.skillname)));
-
-    const config: AxiosRequestConfig = {};
-    if (params.signal) {
-      config.signal = params.signal;
-    }
-
-    const response = await this.client.get<Record<string, unknown>>(url, config);
-    return response.data;
-  }
-
-  /** Bootstrap a new tenant with admin user */
-  async postApiV2AdminBootstrapByTenant(params: {
-    tenant: string;
-    body: Record<string, unknown>;
-    signal?: AbortSignal;
-  }): Promise<Record<string, unknown>> {
-    let url = '/api/v2/admin/bootstrap/{tenant}';
-    url = url.replace('{' + 'tenant' + '}', encodeURIComponent(String(params.tenant)));
-
-    const config: AxiosRequestConfig = {};
-    if (params.signal) {
-      config.signal = params.signal;
-    }
-
-    const response = await this.client.post<Record<string, unknown>>(url, params.body, config);
-    return response.data;
-  }
-
-  /** Telegram webhook endpoint */
-  async postApiV2TelegramWebhook(options?: {
-    signal?: AbortSignal;
-  }): Promise<Record<string, unknown>> {
-    let url = '/api/v2/telegram/webhook';
-
-    const config: AxiosRequestConfig = {};
-    if (options?.signal) {
-      config.signal = options.signal;
-    }
-
-    const response = await this.client.post<Record<string, unknown>>(url, config);
-    return response.data;
-  }
-
-  /** Download artifact via signed token */
-  async getApiV2TelegramDownloadByToken(params: {
-    token: string;
-    signal?: AbortSignal;
-  }): Promise<void> {
-    let url = '/api/v2/telegram/download/{token}';
-    url = url.replace('{' + 'token' + '}', encodeURIComponent(String(params.token)));
-
-    const config: AxiosRequestConfig = {};
-    if (params.signal) {
-      config.signal = params.signal;
-    }
-
-    const response = await this.client.get<void>(url, config);
     return response.data;
   }
 }

@@ -1,7 +1,13 @@
 {
   "operations": {
-    "getApiV2Health": "health-check",
-    "getApiV2HealthReady": "health-check-ready",
+    "getApiV2Health": {
+      "service": "health",
+      "method": "get--"
+    },
+    "getApiV2HealthReady": {
+      "service": "health",
+      "method": "getReady"
+    },
     "getApiV2AuthMe": {
       "service": "auth",
       "method": "getMe"
@@ -12,7 +18,7 @@
     },
     "postApiV2AuthApiKeys": {
       "service": "auth",
-      "method": "createApiKeys"
+      "method": "postApiKeys"
     },
     "deleteApiV2AuthApiKeysById": {
       "service": "auth",
@@ -20,43 +26,43 @@
     },
     "postApiV2AuthRegisterByTenantSlug": {
       "service": "auth",
-      "method": "register"
+      "method": "postRegisterByTenantSlug"
     },
     "getApiV2AuthVerifyEmailByToken": {
       "service": "auth",
-      "method": "verifyEmailByToken"
+      "method": "getVerifyEmailByToken"
     },
     "postApiV2AuthResendVerificationByTenantSlug": {
       "service": "auth",
-      "method": "resendVerification"
+      "method": "postResendVerificationByTenantSlug"
     },
     "postApiV2AuthLoginByTenantSlug": {
       "service": "auth",
-      "method": "login"
+      "method": "postLoginByTenantSlug"
     },
     "postApiV2AuthLogout": {
       "service": "auth",
-      "method": "logout"
+      "method": "postLogout"
     },
     "postApiV2AuthForgotPasswordByTenantSlug": {
       "service": "auth",
-      "method": "forgotPassword"
+      "method": "postForgotPasswordByTenantSlug"
     },
     "postApiV2AuthResetPassword": {
       "service": "auth",
-      "method": "resetPassword"
+      "method": "postResetPassword"
     },
     "postApiV2AuthInvite": {
       "service": "auth",
-      "method": "invite"
+      "method": "postInvite"
     },
     "postApiV2AuthAcceptInviteByToken": {
       "service": "auth",
-      "method": "acceptInvite"
+      "method": "postAcceptInviteByToken"
     },
     "getApiV2Users": {
       "service": "users",
-      "method": "list"
+      "method": "get--"
     },
     "getApiV2UsersById": {
       "service": "users",
@@ -64,7 +70,7 @@
     },
     "patchApiV2UsersById": {
       "service": "users",
-      "method": "updateById"
+      "method": "patchById"
     },
     "deleteApiV2UsersById": {
       "service": "users",
@@ -72,15 +78,15 @@
     },
     "postApiV2UsersInvite": {
       "service": "users",
-      "method": "createInvite"
+      "method": "postInvite"
     },
     "getApiV2Agents": {
       "service": "agents",
-      "method": "list"
+      "method": "get--"
     },
     "postApiV2Agents": {
       "service": "agents",
-      "method": "create"
+      "method": "post--"
     },
     "getApiV2AgentsById": {
       "service": "agents",
@@ -88,7 +94,7 @@
     },
     "patchApiV2AgentsById": {
       "service": "agents",
-      "method": "updateById"
+      "method": "patchById"
     },
     "deleteApiV2AgentsById": {
       "service": "agents",
@@ -96,38 +102,35 @@
     },
     "postApiV2AgentsByIdActivate": {
       "service": "agents",
-      "method": "activate"
+      "method": "postByIdActivate"
     },
     "getApiV2AgentsResolveByName": {
       "service": "agents",
-      "method": "resolveByName"
+      "method": "getResolveByName"
     },
     "getApiV2Dags": {
       "service": "dags",
-      "method": "list"
+      "method": "get--"
     },
     "postApiV2Dags": {
       "service": "dags",
-      "method": "create"
+      "method": "post--"
+    },
+    "postApiV2CreateExecute": {
+      "service": "create",
+      "method": "postExecute"
     },
     "postApiV2DagsByIdResumeClarification": {
       "service": "dags",
-      "method": "resume-clarification"
+      "method": "postByIdResumeClarification"
     },
-    "postApiV2CreateExecute": { "service": "dags", "method": "create-execute" },
-    "getApiV2DagsExecutionsById": {
-      "service": "dags",
-      "method": "executionbyDagId"
-    },
-    "getApiV2Artifacts": "artifacts",
-
     "getApiV2DagsScheduled": {
       "service": "dags",
       "method": "getScheduled"
     },
     "postApiV2DagsScheduled": {
       "service": "dags",
-      "method": "activateScheduled"
+      "method": "postScheduled"
     },
     "getApiV2DagsById": {
       "service": "dags",
@@ -135,7 +138,7 @@
     },
     "patchApiV2DagsById": {
       "service": "dags",
-      "method": "updateById"
+      "method": "patchById"
     },
     "deleteApiV2DagsById": {
       "service": "dags",
@@ -143,19 +146,19 @@
     },
     "postApiV2DagsByIdExecute": {
       "service": "dags",
-      "method": "execute"
-    },
-    "postApiV2DagsExecuteDefinition": {
-      "service": "dags",
-      "method": "createExecuteDefinition"
+      "method": "postByIdExecute"
     },
     "postApiV2DagsExperiments": {
       "service": "dags",
-      "method": "createExperiments"
+      "method": "postExperiments"
+    },
+    "getApiV2DagsExecutionsById": {
+      "service": "dags",
+      "method": "getExecutionsById"
     },
     "getApiV2Executions": {
       "service": "executions",
-      "method": "list"
+      "method": "get--"
     },
     "getApiV2ExecutionsById": {
       "service": "executions",
@@ -171,23 +174,31 @@
     },
     "getApiV2ExecutionsByIdSubSteps": {
       "service": "executions",
-      "method": "getSubSteps"
+      "method": "getByIdSubSteps"
     },
     "getApiV2ExecutionsByIdEvents": {
       "service": "executions",
-      "method": "getEvents"
+      "method": "getByIdEvents"
     },
     "postApiV2ExecutionsByIdResume": {
       "service": "executions",
-      "method": "resume"
+      "method": "postByIdResume"
+    },
+    "getApiV2ArtifactsByPath": {
+      "service": "artifacts",
+      "method": "getByPath"
+    },
+    "getApiV2Artifacts": {
+      "service": "artifacts",
+      "method": "get--"
     },
     "getApiV2Tools": {
       "service": "tools",
-      "method": "list"
+      "method": "get--"
     },
     "getApiV2Skills": {
       "service": "skills",
-      "method": "get"
+      "method": "get--"
     },
     "getApiV2SkillBySkillname": {
       "service": "skill",
@@ -207,9 +218,8 @@
     },
     "getApiV2CostsSummaryMe": {
       "service": "costs",
-      "method": "getMySummary"
+      "method": "getSummaryMe"
     },
-
     "getApiV2BillingUsage": {
       "service": "billing",
       "method": "getUsage"
@@ -232,7 +242,7 @@
     },
     "postApiV2AdminTenants": {
       "service": "admin",
-      "method": "createTenants"
+      "method": "postTenants"
     },
     "getApiV2AdminTenantsById": {
       "service": "admin",
@@ -240,7 +250,7 @@
     },
     "patchApiV2AdminTenantsById": {
       "service": "admin",
-      "method": "updateTenantsById"
+      "method": "patchTenantsById"
     },
     "deleteApiV2AdminTenantsById": {
       "service": "admin",
@@ -248,15 +258,15 @@
     },
     "postApiV2AdminBootstrapByTenant": {
       "service": "admin",
-      "method": "bootstrapTenant"
+      "method": "postBootstrapByTenant"
     },
     "postApiV2TelegramWebhook": {
       "service": "telegram",
-      "method": "setWebhook"
+      "method": "postWebhook"
     },
     "getApiV2TelegramDownloadByToken": {
       "service": "telegram",
-      "method": "getDownload"
+      "method": "getDownloadByToken"
     }
   }
 }

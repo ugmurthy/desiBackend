@@ -30,11 +30,6 @@ const response = await client._default.healthCheck(/* params */);
 - `_default.healthCheckReady(options?)`
 - `_default.getApiV2ArtifactsByPath(path)`
 - `_default.artifacts(options?)`
-- `_default.getApiV2Skills(options?)`
-- `_default.getApiV2SkillBySkillname(skillname)`
-- `_default.postApiV2AdminBootstrapByTenant(tenant, body)`
-- `_default.postApiV2TelegramWebhook(options?)`
-- `_default.getApiV2TelegramDownloadByToken(token)`
 
 ### auth
 
@@ -77,6 +72,7 @@ const response = await client._default.healthCheck(/* params */);
 - `dags.createExecute(body)`
 - `dags.resumeClarification(id, body)`
 - `dags.getScheduled(options?)`
+- `dags.activateScheduled(body)`
 - `dags.getById(id)`
 - `dags.updateById(id, body)`
 - `dags.deleteById(id)`
@@ -97,6 +93,14 @@ const response = await client._default.healthCheck(/* params */);
 ### tools
 
 - `tools.list(options?)`
+
+### skills
+
+- `skills.get(options?)`
+
+### skill
+
+- `skill.getBySkillname(skillname)`
 
 ### costs
 
@@ -119,6 +123,12 @@ const response = await client._default.healthCheck(/* params */);
 - `admin.getTenantsById(id)`
 - `admin.updateTenantsById(id, body)`
 - `admin.deleteTenantsById(id, options?)`
+- `admin.bootstrapTenant(tenant, body)`
+
+### telegram
+
+- `telegram.setWebhook(options?)`
+- `telegram.getDownload(token)`
 
 
 ## API Reference
@@ -192,100 +202,6 @@ Retrieve all artifact names (files) created by the authenticated user's executio
 |----------|------|----------|-------------|
 | `artifacts` | array of object | No |  |
 | `artifact` | object | No |  |
-
-**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
-
----
-
-#### `_default.getApiV2Skills(options?)`
-
-Returns all detected skill names from configured skill directories. Tenant admin role required.
-
-**Response:**
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `skills` | array of string | No |  |
-
-**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
-
----
-
-#### `_default.getApiV2SkillBySkillname(skillname)`
-
-Returns the SKILL.md content for a specific skill name. Tenant admin role required.
-
-**Path Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `skillname` | string | Yes | |
-
-**Response:**
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `skill` | string | No |  |
-| `content` | string | No |  |
-
-**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
-
----
-
-#### `_default.postApiV2AdminBootstrapByTenant(tenant, body)`
-
-Atomically creates a new tenant and its first admin user with an API key. Requires super-admin scope.
-
-**Path Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `tenant` | string | Yes | |
-
-**Request Body:**
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `name` | string | Yes | Tenant display name |
-| `plan` | string enum: [`free`, `pro`, `enterprise`] | No | Tenant plan (defaults to free) |
-| `adminEmail` | string (email) | Yes | Admin user email |
-| `adminName` | string | Yes | Admin user name |
-
-**Response:**
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `tenant` | object | No |  |
-| `admin` | object | No |  |
-| `apiKey` | object | No |  |
-
-**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
-
----
-
-#### `_default.postApiV2TelegramWebhook(options?)`
-
-Receives incoming updates from the Telegram Bot API
-
-**Response:**
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `ok` | boolean | No |  |
-
-**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
-
----
-
-#### `_default.getApiV2TelegramDownloadByToken(token)`
-
-Serves a file artifact using a time-limited signed download token
-
-**Path Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `token` | string | Yes | |
 
 **Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
@@ -1036,6 +952,32 @@ Retrieves all DAGs that have a cron schedule configured, along with their schedu
 
 ---
 
+#### `dags.activateScheduled(body)`
+
+Activates or deactivates scheduling for a DAG that already has a cron schedule configured.
+
+**Request Body:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `dagId` | string | Yes |  |
+| `action` | string enum: [`activate`, `deactivate`] | Yes |  |
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | string | No |  |
+| `dagTitle` | string | No |  |
+| `cronSchedule` | string | No |  |
+| `scheduleActive` | boolean | No |  |
+| `timezone` | string | No |  |
+| `updatedAt` | string (date-time) | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
+---
+
 #### `dags.getById(id)`
 
 Retrieves a specific DAG by its unique identifier, including all nodes, edges, and metadata.
@@ -1386,6 +1328,45 @@ Retrieves a list of all available tools for the authenticated tenant
 | `tools` | array of object | No |  |
 
 **Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
+
+---
+
+### skills
+
+#### `skills.get(options?)`
+
+Returns all detected skill names from configured skill directories. Tenant admin role required.
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `skills` | array of string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
+
+---
+
+### skill
+
+#### `skill.getBySkillname(skillname)`
+
+Returns the SKILL.md content for a specific skill name. Tenant admin role required.
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `skillname` | string | Yes | |
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `skill` | string | No |  |
+| `content` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 
 ---
 
@@ -1742,6 +1723,67 @@ Deletes or suspends a tenant. Use action=delete for permanent deletion or action
 | `quotas` | object | No |  |
 | `createdAt` | string | No |  |
 | `updatedAt` | string | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
+---
+
+#### `admin.bootstrapTenant(tenant, body)`
+
+Atomically creates a new tenant and its first admin user with an API key. Requires super-admin scope.
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `tenant` | string | Yes | |
+
+**Request Body:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Tenant display name |
+| `plan` | string enum: [`free`, `pro`, `enterprise`] | No | Tenant plan (defaults to free) |
+| `adminEmail` | string (email) | Yes | Admin user email |
+| `adminName` | string | Yes | Admin user name |
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `tenant` | object | No |  |
+| `admin` | object | No |  |
+| `apiKey` | object | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
+
+---
+
+### telegram
+
+#### `telegram.setWebhook(options?)`
+
+Receives incoming updates from the Telegram Bot API
+
+**Response:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `ok` | boolean | No |  |
+
+**Cancellation:** Pass an `AbortSignal` via `options.signal` to cancel the request.
+
+---
+
+#### `telegram.getDownload(token)`
+
+Serves a file artifact using a time-limited signed download token
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `token` | string | Yes | |
 
 **Cancellation:** Pass an `AbortSignal` via `params.signal` to cancel the request.
 

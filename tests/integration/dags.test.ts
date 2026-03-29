@@ -1,12 +1,92 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
-import type { Database } from "bun:sqlite";
 
 const fakeDags = [
   { id: "dag_1", dagTitle: "Analyze sales data", status: "active", createdAt: "2024-06-01T00:00:00Z", updatedAt: "2024-06-01T00:00:00Z", metadata: {} },
   { id: "dag_2", dagTitle: "Generate monthly report", status: "pending", createdAt: "2024-06-02T00:00:00Z", updatedAt: "2024-06-02T00:00:00Z", metadata: {} },
   { id: "dag_3", dagTitle: "Sales forecast pipeline", status: "active", createdAt: "2024-06-03T00:00:00Z", updatedAt: "2024-06-03T00:00:00Z", metadata: {} },
 ];
+
+interface FakeScheduledDagRecord {
+  id: string;
+  dagTitle: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  metadata: {
+    cronSchedule: string | null;
+    scheduleActive: boolean;
+    timezone: string;
+  };
+}
+
+const SCHEDULE_UPDATE_TIME = "2024-06-10T00:00:00Z";
+
+function createScheduledDagState(): FakeScheduledDagRecord[] {
+  return [
+    {
+      id: "dag_1",
+      dagTitle: "Analyze sales data",
+      status: "active",
+      createdAt: "2024-06-01T00:00:00Z",
+      updatedAt: "2024-06-01T00:00:00Z",
+      metadata: {
+        cronSchedule: "0 9 * * 1",
+        scheduleActive: false,
+        timezone: "UTC",
+      },
+    },
+    {
+      id: "dag_2",
+      dagTitle: "Generate monthly report",
+      status: "pending",
+      createdAt: "2024-06-02T00:00:00Z",
+      updatedAt: "2024-06-02T00:00:00Z",
+      metadata: {
+        cronSchedule: "0 10 * * 2",
+        scheduleActive: true,
+        timezone: "America/New_York",
+      },
+    },
+    {
+      id: "dag_3",
+      dagTitle: "Sales forecast pipeline",
+      status: "active",
+      createdAt: "2024-06-03T00:00:00Z",
+      updatedAt: "2024-06-03T00:00:00Z",
+      metadata: {
+        cronSchedule: null,
+        scheduleActive: false,
+        timezone: "UTC",
+      },
+    },
+    {
+      id: "dag_unowned",
+      dagTitle: "Finance sync",
+      status: "active",
+      createdAt: "2024-06-04T00:00:00Z",
+      updatedAt: "2024-06-04T00:00:00Z",
+      metadata: {
+        cronSchedule: "0 6 * * *",
+        scheduleActive: true,
+        timezone: "UTC",
+      },
+    },
+  ];
+}
+
+let scheduledDagState = createScheduledDagState();
+
+function cloneScheduledDag(dag: FakeScheduledDagRecord): FakeScheduledDagRecord {
+  return {
+    ...dag,
+    metadata: { ...dag.metadata },
+  };
+}
+
+function findScheduledDag(id: string): FakeScheduledDagRecord | undefined {
+  return scheduledDagState.find((candidate) => candidate.id === id);
+}
 
 const fakeExecutions = [
   {
@@ -63,6 +143,31 @@ function createNotFoundError(message: string): Error {
   return error;
 }
 
+function createValidationError(message: string): Error {
+  const error = new Error(message);
+  error.name = "ValidationError";
+  return error;
+}
+
+function toggleScheduledDag(id: string, scheduleActive: boolean): FakeScheduledDagRecord {
+  const dag = findScheduledDag(id);
+  if (!dag) {
+    throw createNotFoundError("DAG not found");
+  }
+  if (!dag.metadata.cronSchedule) {
+    throw createValidationError(
+      `Cannot ${scheduleActive ? "activate" : "deactivate"} schedule for DAG without a cron schedule`
+    );
+  }
+
+  if (dag.metadata.scheduleActive !== scheduleActive) {
+    dag.metadata.scheduleActive = scheduleActive;
+    dag.updatedAt = SCHEDULE_UPDATE_TIME;
+  }
+
+  return cloneScheduledDag(dag);
+}
+
 vi.mock("@ugm/desiagent", () => ({
   setupDesiAgent: vi.fn(async () => ({
     version: "test",
@@ -71,10 +176,23 @@ vi.mock("@ugm/desiagent", () => ({
     dags: {
       list: vi.fn(async () => fakeDags),
       get: vi.fn(async (id: string) => {
-        const dag = fakeDags.find((candidate) => candidate.id === id);
+        const dag = findScheduledDag(id);
         if (!dag) throw createNotFoundError("DAG not found");
-        return dag;
+        return cloneScheduledDag(dag);
       }),
+      listScheduled: vi.fn(async () =>
+        scheduledDagState
+          .filter((dag) => dag.metadata.cronSchedule)
+          .map((dag) => ({
+            id: dag.id,
+            dagTitle: dag.dagTitle,
+            cronSchedule: dag.metadata.cronSchedule,
+            scheduleDescription: `Schedule for ${dag.dagTitle}`,
+            scheduleActive: dag.metadata.scheduleActive,
+          }))
+      ),
+      activateSchedule: vi.fn(async (id: string) => toggleScheduledDag(id, true)),
+      deactivateSchedule: vi.fn(async (id: string) => toggleScheduledDag(id, false)),
     },
     executions: {
       list: vi.fn(async (filter?: { dagId?: string }) => {
@@ -116,6 +234,10 @@ let app: FastifyInstance;
 let apiKey: string;
 let tenantId: string;
 let userId: string;
+
+beforeEach(() => {
+  scheduledDagState = createScheduledDagState();
+});
 
 beforeAll(async () => {
   ensureAdminDb();
@@ -241,5 +363,100 @@ describe("GET /api/v2/dags search", () => {
     });
 
     expect(afterOwnershipRes.statusCode).toBe(200);
+  });
+});
+
+describe("scheduled DAG routes", () => {
+  it("lists only scheduled DAGs owned by the authenticated user", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v2/dags/scheduled",
+      headers: { authorization: `Bearer ${apiKey}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.dags.map((dag: { id: string }) => dag.id).sort()).toEqual(["dag_1", "dag_2"]);
+  });
+
+  it("activates the schedule for an owned DAG", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v2/dags/scheduled",
+      headers: { authorization: `Bearer ${apiKey}` },
+      payload: {
+        dagId: "dag_1",
+        action: "activate",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.id).toBe("dag_1");
+    expect(body.scheduleActive).toBe(true);
+    expect(body.cronSchedule).toBe("0 9 * * 1");
+    expect(body.timezone).toBe("UTC");
+    expect(body.updatedAt).toBe(SCHEDULE_UPDATE_TIME);
+  });
+
+  it("deactivates the schedule for an owned DAG", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v2/dags/scheduled",
+      headers: { authorization: `Bearer ${apiKey}` },
+      payload: {
+        dagId: "dag_2",
+        action: "deactivate",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.id).toBe("dag_2");
+    expect(body.scheduleActive).toBe(false);
+    expect(body.updatedAt).toBe(SCHEDULE_UPDATE_TIME);
+  });
+
+  it("returns 400 when trying to activate a DAG without a cron schedule", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v2/dags/scheduled",
+      headers: { authorization: `Bearer ${apiKey}` },
+      payload: {
+        dagId: "dag_3",
+        action: "activate",
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().message).toContain("without a cron schedule");
+  });
+
+  it("returns 403 when the DAG is not owned by the authenticated user", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v2/dags/scheduled",
+      headers: { authorization: `Bearer ${apiKey}` },
+      payload: {
+        dagId: "dag_unowned",
+        action: "activate",
+      },
+    });
+
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("returns 404 when the DAG does not exist", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v2/dags/scheduled",
+      headers: { authorization: `Bearer ${apiKey}` },
+      payload: {
+        dagId: "dag_missing",
+        action: "activate",
+      },
+    });
+
+    expect(res.statusCode).toBe(404);
   });
 });

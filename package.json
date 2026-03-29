@@ -1,6 +1,6 @@
 {
   "name": "desibackend",
-  "version":"0.1.01",
+  "version":"0.1.02",
   "module": "src/index.ts",
   "type": "module",
   "private": true,

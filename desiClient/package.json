@@ -1,7 +1,7 @@
 {
-  "name": "desiClient",
-  "version": "2.0.0",
-  "description": "SDK client for desiBackend API",
+  "name": "@ugm/desiclient",
+  "version": "1.0.11",
+  "description": "Auto generated SDK client for desiBackend API",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,7 +12,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",

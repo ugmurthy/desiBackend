@@ -1,6 +1,6 @@
 # desiBackend
 
-Backend API for the desiAgent multi-tenant agent orchestration system. Built with [Fastify](https://fastify.dev) and [Bun](https://bun.sh), it provides a REST API (v2) for managing tenants, users, AI agents, DAG-based workflows, executions, and cost tracking.
+Backend API for the desiAgent multi-tenant agent orchestration system. Built with [Fastify](https://fastify.dev) and [Bun](https://bun.sh), it provides a REST API (v2) for managing tenants, users, AI agents, DAG-based workflows, executions, cost tracking, and Telegram bot integration.
 
 ## Prerequisites
 
@@ -46,6 +46,19 @@ FRONTEND_BASE_URL=http://localhost:5173
 # Override default super admin credentials during bootstrap
 ADMIN_EMAIL=admin@example.com
 ADMIN_NAME=Super Admin
+
+# Telegram Bot (optional)
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_DEFAULT_TENANT_ID=default
+TELEGRAM_POLL_INTERVAL_MS=5000
+TELEGRAM_POLL_TIMEOUT_MS=300000
+TELEGRAM_WEBHOOK_SECRET=
+
+# Agent
+DEFAULT_AGENT_NAME=DecomposerV9
+
+# Data directory override (optional)
+DESI_DATA_DIR=
 ```
 
 ## Initialization
@@ -143,15 +156,23 @@ Interactive API docs (Scalar/Swagger) are available at:
 | **Health** | GET | `/health` | Health check |
 | | GET | `/health/ready` | Readiness check (DB connectivity) |
 | **Auth** | GET | `/auth/me` | Get current user profile |
-| | POST | `/auth/login` | Login with email/password |
-| | POST | `/auth/logout` | End session |
 | | POST | `/auth/register/:tenantSlug` | Self-register for a tenant |
+| | GET | `/auth/verify-email/:token` | Verify email address |
+| | POST | `/auth/resend-verification/:tenantSlug` | Resend verification email |
+| | POST | `/auth/login/:tenantSlug` | Login with email/password |
+| | POST | `/auth/logout` | End session |
+| | POST | `/auth/forgot-password/:tenantSlug` | Request password reset |
+| | POST | `/auth/reset-password` | Reset password with token |
 | | POST | `/auth/invite` | Invite a user (admin) |
 | | POST | `/auth/accept-invite/:token` | Accept an invite |
 | | GET | `/auth/api-keys` | List your API keys |
 | | POST | `/auth/api-keys` | Create a new API key |
 | | DELETE | `/auth/api-keys/:id` | Revoke an API key |
 | **Users** | GET | `/users` | List tenant users (admin) |
+| | GET | `/users/:id` | Get user details (admin) |
+| | PATCH | `/users/:id` | Update a user (admin) |
+| | DELETE | `/users/:id` | Delete a user (admin) |
+| | POST | `/users/invite` | Invite a user (admin) |
 | **Agents** | POST | `/agents` | Create an agent |
 | | GET | `/agents` | List agents |
 | | GET | `/agents/:id` | Get agent details |
@@ -160,26 +181,44 @@ Interactive API docs (Scalar/Swagger) are available at:
 | | POST | `/agents/:id/activate` | Set as active version |
 | | GET | `/agents/resolve/:name` | Resolve active agent by name |
 | **DAGs** | POST | `/dags` | Create a DAG from a goal |
+| | POST | `/create-execute` | Create DAG and execute in one step |
 | | GET | `/dags` | List DAGs |
+| | GET | `/dags/scheduled` | List scheduled DAGs |
+| | POST | `/dags/scheduled` | Manage scheduled DAG actions |
+| | POST | `/dags/experiments` | Run experiments with multiple models/temperatures |
 | | GET | `/dags/:id` | Get DAG details |
 | | PATCH | `/dags/:id` | Update a DAG |
+| | DELETE | `/dags/:id` | Delete a DAG |
 | | POST | `/dags/:id/execute` | Execute a DAG |
+| | POST | `/dags/:id/resume-clarification` | Resume after clarification |
 | **Executions** | GET | `/executions` | List executions |
 | | GET | `/executions/:id` | Get execution details |
-| | GET | `/executions/:id/steps` | Get execution steps |
-| | POST | `/executions/:id/resume` | Resume a paused execution |
+| | GET | `/executions/:id/details` | Get detailed execution info |
+| | GET | `/executions/:id/sub-steps` | Get execution sub-steps |
+| | DELETE | `/executions/:id` | Delete an execution |
 | | GET | `/executions/:id/events` | Stream events (SSE) |
-| **Artifacts** | GET | `/artifacts` | List/retrieve execution artifacts |
+| | POST | `/executions/:id/resume` | Resume a paused execution |
+| **Artifacts** | GET | `/artifacts` | List execution artifacts |
+| | GET | `/artifacts/:path` | Get a specific artifact file |
+| **Skills** | GET | `/skills` | List available skills (admin) |
+| | GET | `/skill/:skillname` | Get skill spec (admin) |
 | **Tools** | GET | `/tools` | List available tools |
-| **Costs** | GET | `/costs/summary/me` | Personal cost summary |
+| **Costs** | GET | `/costs/summary` | Cost summary (admin) |
+| | GET | `/costs/summary/me` | Personal cost summary |
 | | GET | `/costs/executions/:id` | Cost breakdown per execution |
+| | GET | `/costs/dags/:id` | Cost breakdown per DAG |
 | **Billing** | GET | `/billing/usage` | Current billing period usage |
+| | GET | `/billing/usage/history` | Usage history |
 | | GET | `/billing/invoices` | Invoice history |
+| | GET | `/billing/invoices/:id` | Get invoice details |
+| **Telegram** | POST | `/telegram/webhook` | Telegram bot webhook |
+| | GET | `/telegram/download/:token` | Download artifact via signed token |
 | **Admin** | GET | `/admin/tenants` | List tenants |
 | | POST | `/admin/tenants` | Create a tenant |
 | | GET | `/admin/tenants/:id` | Get tenant details |
 | | PATCH | `/admin/tenants/:id` | Update a tenant |
 | | DELETE | `/admin/tenants/:id` | Delete/suspend a tenant |
+| | POST | `/admin/bootstrap/:tenant` | Bootstrap a tenant |
 
 ## Usage Examples
 
@@ -289,13 +328,17 @@ desiBackend/
 │   ├── middleware/      # Auth middleware
 │   ├── plugins/        # Fastify plugins (error handler)
 │   ├── routes/v2/      # All API route handlers
-│   ├── services/       # Business logic (bootstrap, tenant client)
+│   ├── services/       # Business logic (bootstrap, tenant client, telegram)
 │   ├── types/          # Shared TypeScript types
 │   ├── utils/          # Utility functions
 │   ├── app.ts          # Fastify app builder
 │   └── index.ts        # Entry point
 ├── scripts/            # Admin & utility shell scripts
+├── tests/              # Unit, integration & middleware tests
+├── desiClient/         # TypeScript SDK client
+├── desiClientPy/       # Python SDK client
 ├── docs/               # Documentation
+├── tasks/              # PRDs and progress tracking
 ├── artifacts/          # Generated artifacts
 └── package.json
 
@@ -305,7 +348,8 @@ desiBackend/
 ├── seed/                 # Agent seed files
 └── tenants/
     └── <tenant_id>/
-        └── agent.db      # Per-tenant database (users, keys, DAGs)
+        ├── agent.db      # Per-tenant database (users, keys, DAGs)
+        └── artifacts/    # Execution artifacts
 ```
 
 ## Scripts Reference
@@ -318,6 +362,7 @@ desiBackend/
 | `scripts/03-list-tenants.sh` | List all tenants |
 | `scripts/create-api-key.ts` | Generate an API key (used by other scripts) |
 | `scripts/migrate-ownership.ts` | Run ownership migration |
+| `scripts/XX-delete-tenant.sh` | Delete a tenant |
 
 ## Rate Limiting
 
@@ -330,9 +375,52 @@ Rate limit headers are included in all responses:
 - `X-RateLimit-Reset`
 - `Retry-After` (when limit exceeded)
 
+## Docker
+
+### Build the Docker image
+
+```bash
+docker build -t desibackend .
+```
+
+### Run locally with Docker
+
+```bash
+docker run -p 3000:3000 \
+  --env-file .env \
+  -v ~/.desiAgent:/data/.desiAgent \
+  desibackend
+```
+
+### Run with Docker Compose
+
+```bash
+docker compose up --build
+```
+
+To run in the background:
+
+```bash
+docker compose up --build -d
+```
+
+### Verify it's running
+
+```bash
+curl http://localhost:3000/api/v2/health
+```
+
+> **Note:** The container expects the `~/.desiAgent` data directory to be mounted at `/data/.desiAgent`. Run `bun run bootstrap-admin` on the host first to create the required directory structure and admin database before starting the container.
+
 ## Development
 
 ```bash
 # Type checking
 bun run typecheck
+
+# Run tests
+bun run test
+
+# Run tests in watch mode
+bun run test:watch
 ```
